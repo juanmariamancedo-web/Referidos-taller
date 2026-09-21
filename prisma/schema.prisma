@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ADMIN
+  VENDEDOR
+}
+
+enum EstadoCupon {
+  PENDIENTE
+  USADO
+  VENCIDO
+}
+
+enum EstadoLiquidacion {
+  PENDIENTE
+  PAGADA
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  CHEQUE
+}
+
+enum TipoDescuento {
+  PORCENTAJE
+  MONTO_FIJO
+}
+
+enum PlataformaWallet {
+  APPLE
+  GOOGLE
+}
+
+model Negocio {
+  id        String  @id @default(cuid())
+  nombre    String
+  direccion String?
+  activo    Boolean @default(true)
+
+  // Porcentaje de comisión que retiene el negocio sobre la comisión total (ej. 20.00 para un 20%)
+  porcentajeFee Decimal @default(0.00) @db.Decimal(5, 2)
+
+  // Datos de cobro del negocio/comercio
+  alias           String?
+  cbuCvu          String?
+  bancoOProveedor String? // ej. "Mercado Pago", "Banco Galicia"
+
+  usuarios     Usuario[]
+  pagosNegocio PagoNegocio[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([nombre])
+  @@index([activo])
+}
+
+model Usuario {
+  id           String   @id @default(cuid())
+  nombre       String
+  email        String   @unique
+  passwordHash String
+  rol          Rol
+  activo       Boolean  @default(true)
+
+  // Datos de cobro personales del vendedor
+  alias           String?
+  cbuCvu          String?
+  bancoOProveedor String?
+
+  // Token único codificado en el QR físico del vendedor. Separado del id
+  // para poder regenerar/rotar el QR sin romper relaciones existentes.
+  qrToken     String   @unique @default(cuid())
+  qrCreatedAt DateTime @default(now())
+
+  // Pertenece a un negocio solo si su rol es VENDEDOR.
+  // Reforzado con CHECK constraint (ver nota al final).
+  negocioId String?
+  negocio   Negocio? @relation(fields: [negocioId], references: [id])
+
+  cupones                  Cupon[]
+  liquidacionDetalles      LiquidacionDetalle[] @relation("VendedorDetalle")
+  liquidacionesGestionadas Liquidacion[]        @relation("AdminGestion")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([negocioId])
+  @@index([rol])
+  @@index([activo])
+}
+
+model Cupon {
+  id     String      @id @default(cuid())
+  codigo String      @unique // codificado en el QR / mostrado al cliente
+  estado EstadoCupon @default(PENDIENTE)
+
+  // Términos del descuento
+  tipoDescuento       TipoDescuento
+  valorDescuento      Decimal       @db.Decimal(10, 2) // monto fijo o % según tipoDescuento
+  terminosCondiciones String?
+  fechaExpiracion     DateTime?
+
+  // Contacto del cliente que recibió el cupón (para enviarle el link de
+  // wallet y/o avisarle). Vive acá, no en una tabla Cliente aparte, porque
+  // en la v1 el cliente no tiene cuenta ni historial propio.
+  clienteTelefono String?
+  clienteEmail    String?
+
+  // Soporte para Apple Wallet / Google Wallet
+  walletPlataforma PlataformaWallet?
+  walletSerial     String?           @unique // requerido por Apple/Google para poder actualizar el pase después (ej. marcarlo "usado")
+  walletUrl        String?
+  agregadoAWallet  Boolean           @default(false)
+
+  // Vendedor que generó el cupón
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  // Nulo hasta que el cupón se consolida en un detalle de liquidación del vendedor
+  liquidacionDetalleId String?
+  liquidacionDetalle   LiquidacionDetalle? @relation(fields: [liquidacionDetalleId], references: [id])
+
+  createdAt DateTime  @default(now())
+  fechaUso  DateTime? // fecha de canje efectivo en el taller
+
+  @@index([usuarioId])
+  @@index([liquidacionDetalleId])
+  @@index([estado])
+  @@index([fechaUso])
+  @@index([createdAt])
+}
+
+/// Lote o corrida general de liquidación (ej. "2026-10-Q1").
+/// Agrupa tanto los pagos a vendedores (detalles) como los pagos a negocios.
+model Liquidacion {
+  id      String            @id @default(cuid())
+  periodo String // ej. "2026-10-Q1" — no es único: puede haber más de una corrida por período
+  estado  EstadoLiquidacion @default(PENDIENTE)
+
+  fechaPago DateTime?
+
+  // Admin que procesó o aprobó la liquidación
+  gestionadoPorId String?
+  gestionadoPor   Usuario? @relation("AdminGestion", fields: [gestionadoPorId], references: [id])
+
+  detalles     LiquidacionDetalle[]
+  pagosNegocio PagoNegocio[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gestionadoPorId])
+  @@index([estado])
+  @@index([periodo])
+}
+
+/// Lo que le corresponde cobrar a UN VENDEDOR dentro de una liquidación,
+/// con el detalle de qué cupones lo componen.
+model LiquidacionDetalle {
+  id String @id @default(cuid())
+
+  // Desglose financiero
+  montoBruto    Decimal @db.Decimal(10, 2) // total generado por los cupones cubiertos
+  comisionDueno Decimal @db.Decimal(10, 2) // parte que se retiene para el negocio (informativo acá; se cobra vía PagoNegocio)
+  montoNeto     Decimal @db.Decimal(10, 2) // importe final a entregar al vendedor (validar en app: montoBruto - comisionDueno)
+
+  estado     EstadoLiquidacion @default(PENDIENTE)
+  metodoPago MetodoPago        @default(EFECTIVO)
+
+  // Auditoría del pago
+  numeroTransferencia String? // N° de operación o N° de cheque; nota libre si es efectivo
+  fechaPago           DateTime? // fecha de entrega/emisión
+  fechaCobro          DateTime? // solo aplica si metodoPago = CHEQUE y es diferido
+
+  liquidacionId String
+  liquidacion   Liquidacion @relation(fields: [liquidacionId], references: [id])
+
+  // Siempre un vendedor — el destinatario final del monto.
+  usuarioId String
+  usuario   Usuario @relation("VendedorDetalle", fields: [usuarioId], references: [id])
+
+  // Vía de pago de ESTE detalle: directo al vendedor (usa los campos de
+  // arriba: numeroTransferencia/fechaPago/fechaCobro propios) O incluido
+  // dentro de un pago consolidado al negocio (pagoNegocioId seteado, y los
+  // campos propios quedan en null porque el comprobante es el del negocio).
+  // Reforzado con CHECK constraint (ver nota al final): nunca los dos a la vez.
+  pagoNegocioId String?
+  pagoNegocio   PagoNegocio? @relation(fields: [pagoNegocioId], references: [id])
+
+  cupones Cupon[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([liquidacionId])
+  @@index([usuarioId])
+  @@index([usuarioId, estado])
+  @@index([pagoNegocioId])
+}
+
+/// Lo que le corresponde cobrar a UN NEGOCIO dentro de una liquidación:
+/// la suma de `comisionDueno` de todos los detalles de sus vendedores en ese período.
+/// No referencia cupones directamente — es un roll-up, no una liquidación por cupón.
+model PagoNegocio {
+  id String @id @default(cuid())
+
+  monto  Decimal           @db.Decimal(10, 2) // suma de comisionDueno de sus vendedores en ese período
+  estado EstadoLiquidacion @default(PENDIENTE)
+
+  metodoPago          MetodoPago @default(EFECTIVO)
+  numeroTransferencia String?
+  fechaPago           DateTime?
+  fechaCobro          DateTime? // solo aplica si metodoPago = CHEQUE y es diferido
+
+  negocioId String
+  negocio   Negocio @relation(fields: [negocioId], references: [id])
+
+  liquidacionId String
+  liquidacion   Liquidacion @relation(fields: [liquidacionId], references: [id])
+
+  // Detalles de vendedores que quedaron cubiertos por ESTE pago consolidado
+  // al negocio (modelo "le pago al negocio y él reparte").
+  detallesIncluidos LiquidacionDetalle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([negocioId])
+  @@index([liquidacionId])
+  @@index([negocioId, estado])
+}

@@ -239,3 +239,15 @@ model PagoNegocio {
   @@index([liquidacionId])
   @@index([negocioId, estado])
 }
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique // Guardará el HASH SHA-256 del código (así garantizamos unicidad)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Índices para acelerar las búsquedas por email o el estado del token
+  @@index([email])
+}

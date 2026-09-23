@@ -1,13 +1,12 @@
+// app/components/Header/Header.tsx
 import ButtonOfDarkMode from "./ButtonOfDarkMode";
 import SwitchOpen from "./SwitchOpen";
 import Home from "@/app/components/icons/HomeIcon";
 import Link from "next/link";
 import { Page } from "@/lib/types/page";
-import { getUserAuth, logoutAction } from "@/app/actions/auth";
+import { getUserAuth } from "@/app/actions/auth";
 import ProfileIcon from "../icons/ProfileIcon";
 import { HeaderInteractive } from "./HeaderInteractive";
-import Logout from "../icons/LogoutIcon";
-import { redirect } from "next/navigation";
 import LogoutButton from "./LogoutButton";
 
 interface HeaderProps {
@@ -17,9 +16,9 @@ interface HeaderProps {
 }
 
 export async function Header({ pages, homeUrl, isDark }: HeaderProps) {
-  const {success} = await getUserAuth();
+  const { success } = await getUserAuth();
 
-  if (!success) return null
+  if (!success) return null;
 
   return (
     <HeaderInteractive>
@@ -28,12 +27,14 @@ export async function Header({ pages, homeUrl, isDark }: HeaderProps) {
           
           {/* Inicio / Home */}
           <li className="hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition p-1.5 flex justify-center items-center">
-            <Link
-              className="flex justify-center items-center cursor-pointer"
-              href={homeUrl}
-            >
-              <Home className="w-5 h-5" />
-            </Link>
+            <SwitchOpen>
+              <Link
+                className="flex justify-center items-center cursor-pointer"
+                href={homeUrl}
+              >
+                <Home className="w-5 h-5" />
+              </Link>
+            </SwitchOpen>
           </li>
 
           {/* Rutas / Páginas */}
@@ -41,12 +42,14 @@ export async function Header({ pages, homeUrl, isDark }: HeaderProps) {
             {pages.length > 0 &&
               pages.map((page, index) => (
                 <li key={index}>
-                  <Link
-                    className="hover:bg-black/5 dark:hover:bg-white/10 px-3 py-1 rounded-full transition block"
-                    href={page.href}
-                  >
-                    {page.name}
-                  </Link>
+                  <SwitchOpen>
+                    <Link
+                      className="hover:bg-black/5 dark:hover:bg-white/10 px-3 py-1 rounded-full transition block"
+                      href={page.href}
+                    >
+                      {page.name}
+                    </Link>
+                  </SwitchOpen>
                 </li>
               ))}
           </div>
@@ -55,14 +58,22 @@ export async function Header({ pages, homeUrl, isDark }: HeaderProps) {
           <div className="flex flex-col lg:flex-row items-center justify-center gap-3">
             <div className="flex flex-row items-center justify-center gap-3">
               <li className="hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition flex justify-center items-center p-1 gap-2">
-                <ButtonOfDarkMode isDark={isDark} />
+                <SwitchOpen>
+                  <ButtonOfDarkMode isDark={isDark} />
+                </SwitchOpen>
               </li>
               <li>
-                <Link href="/profile">
-                  <ProfileIcon />
-                </Link>
+                <SwitchOpen>
+                  <Link href="/profile">
+                    <ProfileIcon />
+                  </Link>
+                </SwitchOpen>
               </li>
-              <LogoutButton />
+              <li>
+                <SwitchOpen>
+                  <LogoutButton />
+                </SwitchOpen>
+              </li>
             </div>
           </div>
 

@@ -1,24 +1,34 @@
-import { useState, useEffect, JSX } from "react"
+"use client";
 
-export default function SwitchOpen({children, setOpen}: {children: JSX.Element, setOpen: React.Dispatch<React.SetStateAction<boolean>>}){
-    useEffect(()=>{
-        const mql = window.matchMedia("(min-width: 1024px)")
+import { useState, useEffect, ReactNode } from "react";
+import { useMenu } from "./HeaderInteractive";
 
-        function listenner(x:any){
-            x.matches? setSmall(false) : setSmall(true)
-        }
+export default function SwitchOpen({ children }: { children: ReactNode }) {
+  const { closeMenu } = useMenu();
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
 
-        listenner(mql)
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 1024px)");
 
-        mql.onchange = listenner
-    }, [])
+    const updateScreenSize = (e: MediaQueryList | MediaQueryListEvent) => {
+      // Si coincide con min-width 1024px, no estamos en pantalla pequeña (mobile/tablet)
+      setIsSmallScreen(!e.matches);
+    };
 
-    const [small, setSmall] = useState(false)
+    // Evaluamos el estado inicial
+    updateScreenSize(mql);
 
-    return (
-    <div onClick={()=>{
-        if(small) setOpen(false)
-    }}>
-        {children}
-    </div>)
+    // Listener moderno y seguro
+    mql.addEventListener("change", updateScreenSize);
+    return () => mql.removeEventListener("change", updateScreenSize);
+  }, []);
+
+  const handleClick = () => {
+    // Si estamos en pantalla chica, cerramos el menú desplegable al hacer clic
+    if (isSmallScreen) {
+      closeMenu();
+    }
+  };
+
+  return <div onClick={handleClick}>{children}</div>;
 }

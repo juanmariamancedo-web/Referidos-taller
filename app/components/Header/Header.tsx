@@ -10,9 +10,10 @@ import { Page } from "@/lib/types/page";
 interface HeaderProps {
   pages: Page[];
   homeUrl: string;
+  isDark: boolean
 }
 
-export function Header({ pages, homeUrl }: HeaderProps) {
+export function Header({ pages, homeUrl, isDark }: HeaderProps) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -128,7 +129,7 @@ export function Header({ pages, homeUrl }: HeaderProps) {
                 <div className="flex flex-row items-center justify-center gap-3">
                   <li className="hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition flex justify-center items-center p-1">
                     <SwitchOpen setOpen={setOpen}>
-                      <ButtonOfDarkMode />
+                      <ButtonOfDarkMode isDark={isDark} />
                     </SwitchOpen>
                   </li>
                 </div>

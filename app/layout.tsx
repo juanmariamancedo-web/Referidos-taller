@@ -1,7 +1,7 @@
 "use server";
 
 import { JSX } from "react";
-import { Header } from "@/app/components/Header/Header"
+import { Header } from "@/app/components/Header/HeaderAdminPanel"
 import { Page } from "@/lib/types/page";
 import Link from "next/link";
 import "./globals.css";

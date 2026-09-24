@@ -67,6 +67,7 @@ model Negocio {
 model Usuario {
   id           String   @id @default(cuid())
   nombre       String
+  apellido     String?   // <--- Campo obligatorio
   email        String   @unique
   passwordHash String
   rol          Rol
@@ -77,13 +78,10 @@ model Usuario {
   cbuCvu          String?
   bancoOProveedor String?
 
-  // Token único codificado en el QR físico del vendedor. Separado del id
-  // para poder regenerar/rotar el QR sin romper relaciones existentes.
+  // Token único codificado en el QR físico del vendedor
   qrToken     String   @unique @default(cuid())
   qrCreatedAt DateTime @default(now())
 
-  // Pertenece a un negocio solo si su rol es VENDEDOR.
-  // Reforzado con CHECK constraint (ver nota al final).
   negocioId String?
   negocio   Negocio? @relation(fields: [negocioId], references: [id])
 

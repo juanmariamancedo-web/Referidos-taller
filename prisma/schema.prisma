@@ -68,10 +68,10 @@ model Negocio {
 
 model Usuario {
   id           String   @id @default(cuid())
-  nombre       String
+  nombre       String?
   apellido     String?   // <--- Campo obligatorio
   email        String   @unique
-  passwordHash String
+  passwordHash String?
   rol          Rol
   activo       Boolean  @default(true)
 

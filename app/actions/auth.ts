@@ -24,7 +24,7 @@ export async function loginAction(prevState: any, formData: FormData) {
    return { message: 'Credenciales inválidas.' };
   }
 
-  const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+  const isValidPassword = user.passwordHash? await bcrypt.compare(password, user.passwordHash) : false
   if (!isValidPassword) {
    return { message: 'Credenciales inválidas.' };
   }

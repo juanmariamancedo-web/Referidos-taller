@@ -87,81 +87,130 @@ export async function getBusiness({ search = '', sort = '', page = 1 }: GetBusin
   }
 }
 
-
+import { getUserAuth } from '@/app/actions/auth'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { getUserAuth } from '@/app/actions/auth' // Ajusta la ruta a la ubicación de tu helper
+import { generateRandomCode, hashToken } from '@/lib/crypto'
 
 export interface CreateBusinessState {
   error?: string
   success?: boolean
 }
 
-export async function createBusiness(prevState: CreateBusinessState, formData: FormData): Promise<CreateBusinessState> {
-  // 1. Autorización de administrador
+export async function createBusiness(
+  prevState: CreateBusinessState,
+  formData: FormData
+): Promise<CreateBusinessState> {
+  // 1. Verificación de Autenticación y Autorización
   const { data : user } = await getUserAuth()
+
   if (!user || user.rol !== 'ADMIN') {
-    return { error: 'No tienes permisos de administrador para realizar esta acción.' }
+    return {
+      error: 'Acceso denegado: Se requieren permisos de Administrador.',
+    }
   }
 
-  // 2. Extraer datos del formulario
-  const nombre = formData.get('nombre') as string
+  // 2. Extracción y Limpieza de Parámetros
   const userEmail = (formData.get('userEmail') as string)?.trim().toLowerCase()
-  const direccion = formData.get('direccion') as string
+  const nombre = (formData.get('nombre') as string)?.trim()
+  const direccion = (formData.get('direccion') as string)?.trim() || null
   const porcentajeFee = parseFloat(formData.get('porcentajeFee') as string) || 0
-  const bancoOProveedor = formData.get('bancoOProveedor') as string
-  const alias = formData.get('alias') as string
-  const cbuCvu = formData.get('cbuCvu') as string
+  const bancoOProveedor = (formData.get('bancoOProveedor') as string)?.trim() || null
+  const alias = (formData.get('alias') as string)?.trim() || null
+  const cbuCvu = (formData.get('cbuCvu') as string)?.trim() || null
   const activo = formData.get('activo') === 'on'
 
-  // Validaciones primarias
-  if (!nombre || nombre.trim() === '') {
+  // 3. Validaciones Primarias
+  if (!userEmail) {
+    return { error: 'El email del usuario/encargado es obligatorio.' }
+  }
+
+  if (!nombre) {
     return { error: 'El nombre del negocio es obligatorio.' }
   }
 
-  if (!userEmail) {
-    return { error: 'El email del usuario asociado es obligatorio.' }
-  }
+  let rawCodeToSend: string | null = null
 
   try {
-    // 3. Transacción en la base de datos
+    // 4. Transacción Atómica en Prisma
     await prisma.$transaction(async (tx) => {
-      // Verificar si el usuario ya existe por email
+      // Buscar si el usuario ya existe por email
       let targetUser = await tx.usuario.findUnique({
         where: { email: userEmail },
       })
 
-      // Si no existe, se crea un nuevo usuario
+      let isNewUser = false
+
+      // Si no existe, se pre-registra con el rol 'NO_VERIFICADO'
       if (!targetUser) {
         targetUser = await tx.usuario.create({
           data: {
             email: userEmail,
-            rol: "VENDEDOR", // Rol por defecto
+            rol: 'NO_VERIFICADO',
+            nombre: '',       // Se completa con cadena vacía para TS y Prisma[cite: 1]
+            passwordHash: '', // Se actualizará cuando el usuario defina su contraseña[cite: 1]
           },
+        })
+        isNewUser = true
+      }
+
+      // Crear el negocio asociando al usuario
+      const nuevoNegocio = await tx.negocio.create({
+        data: {
+          nombre,
+          direccion,
+          porcentajeFee,
+          bancoOProveedor,
+          alias,
+          cbuCvu,
+          activo,
+          usuarios: {
+            connect: { id: targetUser.id },
+          },
+        },
+      })
+
+      // Asignar el negocioId al usuario si no tenía uno asignado previamente
+      if (!targetUser.negocioId) {
+        await tx.usuario.update({
+          where: { id: targetUser.id },
+          data: { negocioId: nuevoNegocio.id },
         })
       }
 
-      // Crear el negocio asociándolo al usuario encontrado o creado
-      await tx.negocio.create({
-        data: {
-          nombre: nombre.trim(),
-          direccion: direccion?.trim() || null,
-          porcentajeFee,
-          bancoOProveedor: bancoOProveedor?.trim() || null,
-          alias: alias?.trim() || null,
-          cbuCvu: cbuCvu?.trim() || null,
-          activo,
-          // Conexión con la relación de Prisma
-          userId: targetUser.id, 
-        },
-      })
+      // Si el usuario es nuevo, generamos la entrada en VerificationCode
+      if (isNewUser) {
+        // Uso de las utilidades de @/lib/crypto
+        const rawCode = generateRandomCode()
+        const tokenHash = hashToken(rawCode)
+        rawCodeToSend = rawCode
+
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // Expira en 24 horas
+
+        await tx.verificationCode.create({
+          data: {
+            email: userEmail,
+            token: tokenHash, // Hash almacenado en la base de datos
+            expiresAt,
+            used: false,
+          },
+        })
+      }
     })
 
+    // 5. Enviar el correo electrónico fuera de la transacción de la BD
+    if (rawCodeToSend) {
+      // TODO: Enviar email con el código rawCodeToSend
+      // ej: await sendVerificationEmail(userEmail, rawCodeToSend)
+    }
   } catch (error) {
-    console.error('Error al crear o asociar negocio:', error)
-    return { error: 'Ocurrió un error al procesar el usuario o guardar el negocio.' }
+    console.error('Error al ejecutar createBusiness:', error)
+    return {
+      error: 'Ocurrió un error inesperado al guardar el negocio en la base de datos.',
+    }
   }
 
+  // 6. Revalidación de Caché y Redirección
   revalidatePath('/negocios')
   redirect('/negocios')
 }

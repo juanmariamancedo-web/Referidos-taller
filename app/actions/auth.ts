@@ -4,7 +4,42 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma'; // Ajusta a tu instancia de Prisma
 import bcrypt from 'bcryptjs';
+import { hashToken } from '@/lib/crypto';
 
+export async function verifyAndActivateUser(email: string, code: string, newPasswordHash: string) {
+  const tokenHash = hashToken(code)
+
+  const record = await prisma.verificationCode.findFirst({
+    where: {
+      email,
+      token: tokenHash,
+      used: false,
+      expiresAt: { gt: new Date() },
+    },
+  })
+
+  if (!record) {
+    return { error: 'El código de verificación es inválido o ha expirado.' }
+  }
+
+  await prisma.$transaction([
+    // 1. Activar el usuario y asignarle el rol GERENTE
+    prisma.usuario.update({
+      where: { email },
+      data: {
+        rol: "VENDEDOR",
+        passwordHash: newPasswordHash,
+      },
+    }),
+    // 2. Marcar el código como usado
+    prisma.verificationCode.update({
+      where: { id: record.id },
+      data: { used: true },
+    }),
+  ])
+
+  return { success: true }
+}
 
 export async function loginAction(prevState: any, formData: FormData) {
  const email = formData.get('email') as string;
@@ -24,7 +59,7 @@ export async function loginAction(prevState: any, formData: FormData) {
    return { message: 'Credenciales inválidas.' };
   }
 
-  const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+  const isValidPassword = user.passwordHash? await bcrypt.compare(password, user.passwordHash) : false
   if (!isValidPassword) {
    return { message: 'Credenciales inválidas.' };
   }

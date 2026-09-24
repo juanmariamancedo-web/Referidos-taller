@@ -5,7 +5,6 @@ import { useActionState, useState } from 'react'
 import { updateProfileAction } from '../actions/profile'
 import { Usuario } from '@prisma/client'
 
-
 export type ActionState = {
   success?: boolean
   message?: string
@@ -24,50 +23,46 @@ interface ProfileFormProps {
   userData?: Omit<Usuario, 'passwordHash'>
 }
 
-export default function ProfileForm({
-  userData,
-}: ProfileFormProps) {
+export default function ProfileForm({ userData }: ProfileFormProps) {
   const [state, formAction, isPending] = useActionState(updateProfileAction, null)
 
   const [formData, setFormData] = useState({
     nombre: userData?.nombre || '',
     apellido: userData?.apellido || '',
+    email: userData?.email || '',
     role: userData?.rol || '',
     alias: userData?.alias || '',
     cbuCvu: userData?.cbuCvu || '',
     bancoOProveedor: userData?.bancoOProveedor || '',
   })
 
-    const handleChange = (
+  const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-    ) => {
-        const { name, value } = e.target
-        let newValue = value
+  ) => {
+    const { name, value } = e.target
+    let newValue = value
 
-        switch (name) {
-            case 'cbuCvu':
-                // Elimina todo lo que NO sea un número y limita a 22 dígitos
-                newValue = value.replace(/\D/g, '').slice(0, 22)
-                break
+    switch (name) {
+      case 'cbuCvu':
+        newValue = value.replace(/\D/g, '').slice(0, 22)
+        break
 
-            case 'nombre':
-                case 'apellido':
-                // Permite únicamente letras (incluye acentos, ñ/Ñ) y espacios
-                newValue = value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')
-            break
+      case 'nombre':
+      case 'apellido':
+        newValue = value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')
+        break
 
-            case 'alias':
-                // Permite solo letras, números, puntos y guiones (sin espacios)
-                newValue = value.replace(/[^a-zA-Z0-9.-]/g, '').slice(0, 20)
-                break
+      case 'alias':
+        newValue = value.replace(/[^a-zA-Z0-9.-]/g, '').slice(0, 20)
+        break
 
-            default:
-                newValue = value
-                break
-        }
-
-        setFormData((prev) => ({ ...prev, [name]: newValue }))
+      default:
+        newValue = value
+        break
     }
+
+    setFormData((prev) => ({ ...prev, [name]: newValue }))
+  }
 
   const handleCancel = () => {
     window.history.back()
@@ -81,7 +76,7 @@ export default function ProfileForm({
       action={formAction}
       className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] dark:border-white/10 dark:bg-zinc-900"
     >
-      {/* Alerta de mensaje global (éxito / error) */}
+      {/* Alerta de mensaje global */}
       {state?.message && (
         <div
           className={`rounded-xl p-4 text-sm font-medium ${
@@ -94,6 +89,7 @@ export default function ProfileForm({
         </div>
       )}
 
+      {/* Grid principal */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Nombre */}
         <div>
@@ -139,6 +135,25 @@ export default function ProfileForm({
           )}
         </div>
 
+        {/* Email */}
+        <div>
+          <label
+            htmlFor="email"
+            className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300"
+          >
+            Correo electrónico
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleChange}
+            className={`${inputClass} cursor-not-allowed opacity-70`}
+            disabled
+          />
+        </div>
+
         {/* Rol */}
         <div>
           <label
@@ -161,7 +176,7 @@ export default function ProfileForm({
           )}
         </div>
 
-        {/* Banco o Proveedor */}
+        {/* Banco / Entidad */}
         <div>
           <label
             htmlFor="bancoOProveedor"
@@ -207,8 +222,8 @@ export default function ProfileForm({
           )}
         </div>
 
-        {/* CBU / CVU */}
-        <div>
+        {/* CBU / CVU ocupa las 2 columnas */}
+        <div className="md:col-span-2">
           <label
             htmlFor="cbuCvu"
             className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300"
@@ -229,8 +244,8 @@ export default function ProfileForm({
           )}
         </div>
 
-        {/* Secciones de navegación rápida */}
-        <div className="col-span-1 grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-3">
+        {/* Botones de navegación (ocupa las 2 columnas) */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:col-span-2">
           <Link
             href="/profile/change-password"
             className="flex items-center justify-center gap-2 rounded-xl bg-blue-600/10 px-4 py-2.5 text-sm font-semibold text-blue-600 transition hover:bg-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400"
@@ -252,7 +267,7 @@ export default function ProfileForm({
         </div>
       </div>
 
-      {/* Botones */}
+      {/* Botones de acción */}
       <div className="flex justify-end gap-4 border-t border-slate-200 pt-4 dark:border-white/10">
         <button
           type="button"

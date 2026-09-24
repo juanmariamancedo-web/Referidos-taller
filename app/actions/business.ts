@@ -87,10 +87,11 @@ export async function getBusiness({ search = '', sort = '', page = 1 }: GetBusin
   }
 }
 
+
 import { getUserAuth } from '@/app/actions/auth'
+import { preRegisterUser } from '@/app/actions/users' // Importamos la Server Action de pre-registro
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { generateRandomCode, hashToken } from '@/lib/crypto'
 
 export interface CreateBusinessState {
   error?: string
@@ -102,7 +103,7 @@ export async function createBusiness(
   formData: FormData
 ): Promise<CreateBusinessState> {
   // 1. Verificación de Autenticación y Autorización
-  const { data : user } = await getUserAuth()
+  const { data: user } = await getUserAuth()
 
   if (!user || user.rol !== 'ADMIN') {
     return {
@@ -129,88 +130,72 @@ export async function createBusiness(
     return { error: 'El nombre del negocio es obligatorio.' }
   }
 
-  let rawCodeToSend: string | null = null
-
   try {
-    // 4. Transacción Atómica en Prisma
-    await prisma.$transaction(async (tx) => {
-      // Buscar si el usuario ya existe por email
-      let targetUser = await tx.usuario.findUnique({
+    // 4. Verificar si el usuario existe antes de intentar pre-registrarlo
+    let targetUser = await prisma.usuario.findUnique({
+      where: { email: userEmail },
+    })
+
+    // Si el usuario NO existe, usamos la Server Action preRegisterUser
+    if (!targetUser) {
+      const userFormData = new FormData()
+      userFormData.append('email', userEmail)
+
+      const preRegisterResult = await preRegisterUser({}, userFormData)
+
+      if (preRegisterResult.error) {
+        return {
+          error: `Error al pre-registrar el usuario encargado: ${preRegisterResult.error}`,
+        }
+      }
+
+      // Obtener el usuario recién pre-registrado
+      targetUser = await prisma.usuario.findUnique({
         where: { email: userEmail },
       })
 
-      let isNewUser = false
-
-      // Si no existe, se pre-registra con el rol 'NO_VERIFICADO'
       if (!targetUser) {
-        targetUser = await tx.usuario.create({
-          data: {
-            email: userEmail,
-            rol: 'NO_VERIFICADO',
-            nombre: '',       // Se completa con cadena vacía para TS y Prisma[cite: 1]
-            passwordHash: '', // Se actualizará cuando el usuario defina su contraseña[cite: 1]
-          },
-        })
-        isNewUser = true
+        return {
+          error: 'No se pudo recuperar el usuario pre-registrado.',
+        }
       }
+    }
 
-      // Crear el negocio asociando al usuario
-      const nuevoNegocio = await tx.negocio.create({
-        data: {
-          nombre,
-          direccion,
-          porcentajeFee,
-          bancoOProveedor,
-          alias,
-          cbuCvu,
-          activo,
-          usuarios: {
-            connect: { id: targetUser.id },
-          },
+    // 5. Crear el Negocio y Vincular al Usuario
+    const nuevoNegocio = await prisma.negocio.create({
+      data: {
+        nombre,
+        direccion,
+        porcentajeFee,
+        bancoOProveedor,
+        alias,
+        cbuCvu,
+        activo,
+        usuarios: {
+          connect: { id: targetUser.id },
         },
-      })
-
-      // Asignar el negocioId al usuario si no tenía uno asignado previamente
-      if (!targetUser.negocioId) {
-        await tx.usuario.update({
-          where: { id: targetUser.id },
-          data: { negocioId: nuevoNegocio.id },
-        })
-      }
-
-      // Si el usuario es nuevo, generamos la entrada en VerificationCode
-      if (isNewUser) {
-        // Uso de las utilidades de @/lib/crypto
-        const rawCode = generateRandomCode()
-        const tokenHash = hashToken(rawCode)
-        rawCodeToSend = rawCode
-
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // Expira en 24 horas
-
-        await tx.verificationCode.create({
-          data: {
-            email: userEmail,
-            token: tokenHash, // Hash almacenado en la base de datos
-            expiresAt,
-            used: false,
-          },
-        })
-      }
+      },
     })
 
-    // 5. Enviar el correo electrónico fuera de la transacción de la BD
-    if (rawCodeToSend) {
-      // TODO: Enviar email con el código rawCodeToSend
-      // ej: await sendVerificationEmail(userEmail, rawCodeToSend)
+    // 6. Asignar el negocioId al usuario si aún no tenía uno
+    if (!targetUser.negocioId) {
+      await prisma.usuario.update({
+        where: { id: targetUser.id },
+        data: {
+          negocioId: nuevoNegocio.id,
+        },
+      })
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error al ejecutar createBusiness:', error)
     return {
-      error: 'Ocurrió un error inesperado al guardar el negocio en la base de datos.',
+      error:
+        error.message ||
+        'Ocurrió un error inesperado al guardar el negocio en la base de datos.',
     }
   }
 
-  // 6. Revalidación de Caché y Redirección
+  // 7. Revalidación de Caché y Redirección
   revalidatePath('/negocios')
   redirect('/negocios')
 }

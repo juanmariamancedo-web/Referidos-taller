@@ -1,25 +1,51 @@
 "use client"
 
-import { useState } from "react";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks/redux"
-import { setSearch } from "@/lib/slices/appSlices";
+import { useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
-export default function Search(){
-    const search = useAppSelector((state)=>state.app.search)
-    const [searchLocal, setSearchLocal] = useState<string>(search)
-    
-    const dispatch = useAppDispatch();
+export default function Search() {
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const { replace } = useRouter()
 
-    function handleSubmit(e: React.FormEvent){
-        e.preventDefault()
+  // Inicializa el estado local con el valor actual de 'search' en la URL
+  const [searchLocal, setSearchLocal] = useState<string>(
+    searchParams.get("search")?.toString() || ""
+  )
 
-        dispatch(setSearch(searchLocal))
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+
+    const params = new URLSearchParams(searchParams)
+
+    // Al hacer una nueva búsqueda, reseteamos la página a 1
+    params.set("page", "1")
+
+    if (searchLocal.trim()) {
+      params.set("search", searchLocal.trim())
+    } else {
+      params.delete("search")
     }
 
-    return(
-        <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-3 w-full">
-            <input type="text" onChange={(e)=>setSearchLocal(e.target.value)} value={searchLocal} className="col-span-4 sm:col-span-3 rounded-md bg-black/5 px-3 py-1.5 text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white" />
-            <button type="submit" className="col-span-4 sm:col-span-1 rounded-md bg-black/5 px-3 py-1.5 text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white">Buscar</button>
-        </form>
-    )
+    // Actualiza la URL sin recargar la página completa
+    replace(`${pathname}?${params.toString()}`)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="grid w-full grid-cols-4 gap-3">
+      <input
+        type="text"
+        value={searchLocal}
+        onChange={(e) => setSearchLocal(e.target.value)}
+        placeholder="Buscar..."
+        className="col-span-4 rounded-md bg-black/5 px-3 py-1.5 text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white sm:col-span-3"
+      />
+      <button
+        type="submit"
+        className="col-span-4 rounded-md bg-black/5 px-3 py-1.5 text-gray-900 outline-1 outline-gray-300 transition hover:bg-black/10 focus:outline-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 sm:col-span-1"
+      >
+        Buscar
+      </button>
+    </form>
+  )
 }

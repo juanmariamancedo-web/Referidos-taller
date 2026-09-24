@@ -1,32 +1,42 @@
 "use client"
 
-import { setSort } from "@/lib/slices/appSlices"
-import { useAppDispatch, useAppSelector } from "@/lib/hooks/redux"
-
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 interface Props {
-    className?: string,
-    serverArg: string, 
-    name: string
+  className?: string
+  serverArg: string
+  name: string
 }
 
-export function Sort({className, serverArg, name} : Props){
-    const dispatch = useAppDispatch()
-    const sort = useAppSelector((state) => state.app.sort)
+export function Sort({ className, serverArg, name }: Props) {
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const { replace } = useRouter()
 
-    function toggleStock(){
-        if(sort == `${serverArg}Asc`){
-            dispatch(setSort(`${serverArg}Desc`))
-        }else{
-            dispatch(setSort(`${serverArg}Asc`))
-        }
+  // Lee el parámetro de ordenamiento actual directamente de la URL
+  const sort = searchParams.get("sort")
+
+  function toggleSort() {
+    const params = new URLSearchParams(searchParams)
+
+    // Si ya está en Asc, cambia a Desc; de lo contrario, establece Asc
+    if (sort === `${serverArg}Asc`) {
+      params.set("sort", `${serverArg}Desc`)
+    } else {
+      params.set("sort", `${serverArg}Asc`)
     }
 
-    return(
-        <button onClick={toggleStock} className={className}>
-            {sort ==  `${serverArg}Desc` && <>↓ </>}
-            {sort ==  `${serverArg}Asc` && <>↑ </>}
-                {name}
-        </button>
-    )
+    // Opcional: Resetea la página a 1 al cambiar el orden
+    params.set("page", "1")
+
+    replace(`${pathname}?${params.toString()}`)
+  }
+
+  return (
+    <button onClick={toggleSort} className={className}>
+      {sort === `${serverArg}Desc` && <>↓ </>}
+      {sort === `${serverArg}Asc` && <>↑ </>}
+      {name}
+    </button>
+  )
 }

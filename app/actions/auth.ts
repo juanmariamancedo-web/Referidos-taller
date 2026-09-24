@@ -63,13 +63,9 @@ export async function getUserAuth() {
   try {
     const user = await prisma.usuario.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        nombre: true,
-        activo: true,
-        // Evita seleccionar la clave hash 'passwordHash' por seguridad
-      },
+      omit: {
+        passwordHash: true
+      }
     });
 
     if (!user || !user.activo) {

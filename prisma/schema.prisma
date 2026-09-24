@@ -9,7 +9,9 @@ datasource db {
 
 enum Rol {
   ADMIN
+  GERENTE
   VENDEDOR
+  NO_VERIFICADO
 }
 
 enum EstadoCupon {

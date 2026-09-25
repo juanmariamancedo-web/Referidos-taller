@@ -13,3 +13,8 @@ export function generateRandomCode(): string {
 export function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex")
 }
+
+/**
+ * Hashea una contraseña usando PBKDF2 de forma síncrona.
+ * Incluye un salt seguro de 16 bytes.
+ */

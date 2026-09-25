@@ -6,39 +6,109 @@ import { prisma } from '@/lib/prisma'; // Ajusta a tu instancia de Prisma
 import bcrypt from 'bcryptjs';
 import { hashToken } from '@/lib/crypto';
 
-export async function verifyAndActivateUser(email: string, code: string, newPasswordHash: string) {
-  const tokenHash = hashToken(code)
+export type VerifyState = {
+  success?: boolean
+  message?: string
+  errors?: Record<string, string>
+} | null
 
-  const record = await prisma.verificationCode.findFirst({
-    where: {
-      email,
-      token: tokenHash,
-      used: false,
-      expiresAt: { gt: new Date() },
-    },
-  })
+export async function verifyAndActivateUser(
+  prevState: VerifyState,
+  formData: FormData
+): Promise<VerifyState> {
+  // const email = (formData.get('email') as string)?.trim().toLowerCase()
+  const code = (formData.get('code') as string)?.trim()
+  const nombre = (formData.get('nombre') as string)?.trim()
+  const password = formData.get('password') as string
+  const confirmPassword = formData.get('confirmPassword') as string
 
-  if (!record) {
-    return { error: 'El código de verificación es inválido o ha expirado.' }
+  // 1. Validaciones de formulario
+  if (!code || !nombre || !password || !confirmPassword) {
+    return {
+      success: false,
+      message: 'Todos los campos son obligatorios.',
+    }
   }
 
-  await prisma.$transaction([
-    // 1. Activar el usuario y asignarle el rol GERENTE
-    prisma.usuario.update({
-      where: { email },
-      data: {
-        rol: "VENDEDOR",
-        passwordHash: newPasswordHash,
-      },
-    }),
-    // 2. Marcar el código como usado
-    prisma.verificationCode.update({
-      where: { id: record.id },
-      data: { used: true },
-    }),
-  ])
+  if (password.length < 6) {
+    return {
+      success: false,
+      message: 'La contraseña debe tener al menos 6 caracteres.',
+      errors: { password: 'Mínimo 6 caracteres' },
+    }
+  }
 
-  return { success: true }
+  if (password !== confirmPassword) {
+    return {
+      success: false,
+      message: 'Las contraseñas no coinciden.',
+      errors: { confirmPassword: 'Las contraseñas no coinciden' },
+    }
+  }
+
+  try {
+    // 2. Calcular el hash del código para buscarlo en la BD
+    const tokenHash = hashToken(code)
+
+    const verificationRecord = await prisma.verificationCode.findFirst({
+      where: {
+        // email,
+        token: tokenHash,
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+    })
+
+    if (!verificationRecord) {
+      return {
+        success: false,
+        message: 'El código de verificación es inválido, ya fue utilizado o ha expirado.',
+      }
+    }
+
+    // 3. Obtener el usuario pre-registrado
+    const user = await prisma.usuario.findUnique({
+      where: { email: verificationRecord.email },
+    })
+
+    if (!user) {
+      return {
+        success: false,
+        message: 'No se encontró la cuenta de usuario asociada a este correo.',
+      }
+    }
+
+    // 4. Hashear la contraseña nueva
+    const passwordHash = await bcrypt.hash(password, 10)
+
+    // Determinar el rol según la lógica de tu negocio
+    const newRole = user.rol === 'NO_VERIFICADO' ? 'VENDEDOR' : user.rol
+
+    // 5. Actualización atómica
+    await prisma.$transaction([
+      prisma.usuario.update({
+        where: { id: user.id },
+        data: {
+          nombre,
+          passwordHash,
+          rol: newRole,
+        },
+      }),
+      prisma.verificationCode.update({
+        where: { id: verificationRecord.id },
+        data: { used: true },
+      }),
+    ])
+  } catch (error: any) {
+    console.error('Error en verifyAndActivateUser:', error)
+    return {
+      success: false,
+      message: 'Ocurrió un error al activar la cuenta. Inténtalo nuevamente.',
+    }
+  }
+
+  // 6. El redirect debe ejecutarse SIEMPRE fuera del try/catch
+  redirect('/login?verified=true')
 }
 
 export async function loginAction(prevState: any, formData: FormData) {

@@ -3,6 +3,153 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 
+export interface UpdateBusinessState {
+  error?: string
+  success?: boolean
+}
+
+/**
+ * Obtiene un negocio por su ID junto con el email del primer usuario/encargado asignado.
+ */
+export async function getBusinessById(id: string) {
+  try {
+    const negocio = await prisma.negocio.findUnique({
+      where: { id },
+      include: {
+        usuarios: {
+          take: 1,
+          select: { email: true },
+        },
+      },
+    })
+
+    if (!negocio) {
+      return { success: false, message: 'Negocio no encontrado', data: null }
+    }
+
+    return {
+      success: true,
+      data: {
+        ...negocio,
+        userEmail: negocio.usuarios[0]?.email || '',
+        // Convertimos el Decimal de Prisma a un number nativo de JS
+        porcentajeFee: negocio.porcentajeFee ? Number(negocio.porcentajeFee) : 0,
+      },
+    }
+  } catch (error) {
+    console.error('Error en getBusinessById:', error)
+    return { success: false, message: 'Error al obtener el negocio', data: null }
+  }
+}
+
+/**
+ * Actualiza un negocio existente (Rango Admin sin restricciones).
+ */
+export async function updateBusiness(
+  businessId: string,
+  prevState: UpdateBusinessState,
+  formData: FormData
+): Promise<UpdateBusinessState> {
+  // 1. Verificación de Autenticación y Autorización
+  const { data: user } = await getUserAuth()
+
+  if (!user || user.rol !== 'ADMIN') {
+    return {
+      error: 'Acceso denegado: Se requieren permisos de Administrador.',
+    }
+  }
+
+  if (!businessId) {
+    return { error: 'El ID del negocio es obligatorio.' }
+  }
+
+  // 2. Extracción y Limpieza de Parámetros
+  const userEmail = (formData.get('userEmail') as string)?.trim().toLowerCase()
+  const nombre = (formData.get('nombre') as string)?.trim()
+  const direccion = (formData.get('direccion') as string)?.trim() || null
+  const porcentajeFee = parseFloat(formData.get('porcentajeFee') as string) || 0
+  const bancoOProveedor = (formData.get('bancoOProveedor') as string)?.trim() || null
+  const alias = (formData.get('alias') as string)?.trim() || null
+  const cbuCvu = (formData.get('cbuCvu') as string)?.trim() || null
+  const activo = formData.get('activo') === 'on'
+
+  // 3. Validaciones Primarias
+  if (!userEmail) {
+    return { error: 'El email del usuario/encargado es obligatorio.' }
+  }
+
+  if (!nombre) {
+    return { error: 'El nombre del negocio es obligatorio.' }
+  }
+
+  try {
+    // 4. Buscar el usuario objetivo o pre-registrarlo si no existe
+    let targetUser = await prisma.usuario.findUnique({
+      where: { email: userEmail },
+    })
+
+    if (!targetUser) {
+      const userFormData = new FormData()
+      userFormData.append('email', userEmail)
+
+      const preRegisterResult = await preRegisterUser({}, userFormData)
+
+      if (preRegisterResult.error) {
+        return {
+          error: `Error al pre-registrar el nuevo usuario encargado: ${preRegisterResult.error}`,
+        }
+      }
+
+      targetUser = await prisma.usuario.findUnique({
+        where: { email: userEmail },
+      })
+
+      if (!targetUser) {
+        return {
+          error: 'No se pudo recuperar el usuario pre-registrado.',
+        }
+      }
+    }
+
+    // 5. Actualizar el Negocio y conectar/vincular el nuevo usuario encargado
+    await prisma.negocio.update({
+      where: { id: businessId },
+      data: {
+        nombre,
+        direccion,
+        porcentajeFee,
+        bancoOProveedor,
+        alias,
+        cbuCvu,
+        activo,
+        usuarios: {
+          connect: { id: targetUser.id },
+        },
+      },
+    })
+
+    // 6. Si el usuario reasignado/asociado no tenía este negocioId, lo actualizamos
+    if (targetUser.negocioId !== businessId) {
+      await prisma.usuario.update({
+        where: { id: targetUser.id },
+        data: { negocioId: businessId },
+      })
+    }
+  } catch (error: any) {
+    console.error('Error al ejecutar updateBusiness:', error)
+    return {
+      error:
+        error.message ||
+        'Ocurrió un error inesperado al actualizar el negocio en la base de datos.',
+    }
+  }
+
+  // 7. Revalidación de Caché y Redirección
+  revalidatePath('/negocios')
+  revalidatePath(`/negocios/${businessId}`)
+  redirect('/negocios')
+}
+
 interface GetBusinessParams {
   search?: string
   sort?: string

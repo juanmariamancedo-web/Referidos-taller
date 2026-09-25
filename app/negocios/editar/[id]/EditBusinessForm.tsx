@@ -36,6 +36,7 @@ export default function EditBusinessForm({ business }: EditBusinessFormProps) {
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-black/20">
+      {/* Header sin elementos apretados */}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -185,8 +186,8 @@ export default function EditBusinessForm({ business }: EditBusinessFormProps) {
           </label>
         </div>
 
-        {/* Botones de acción */}
-        <div className="flex justify-end gap-3 pt-6">
+        {/* Botones principales del formulario */}
+        <div className="flex justify-end gap-3 pt-4">
           <Link
             href="/negocios"
             className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
@@ -202,6 +203,24 @@ export default function EditBusinessForm({ business }: EditBusinessFormProps) {
           </button>
         </div>
       </form>
+
+      {/* Sección inferior aislada para acciones secundarias / relaciones */}
+      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+            Usuarios del negocio
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Consulta y gestiona todos los usuarios vinculados a este negocio.
+          </p>
+        </div>
+        <Link
+          href={`/usuarios?negocioId=${business.id}`}
+          className="w-full sm:w-auto text-center rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition dark:border-gray-700 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+        >
+          Ver usuarios de este negocio →
+        </Link>
+      </div>
     </div>
   )
 }

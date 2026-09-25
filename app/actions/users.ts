@@ -5,6 +5,125 @@ import { getUserAuth } from '@/app/actions/auth'
 import { generateRandomCode, hashToken } from '@/lib/crypto'
 import { revalidatePath } from 'next/cache'
 import { sendVerificationEmail } from '@/lib/mailer'
+import { Prisma } from '@prisma/client'
+
+
+interface GetUsersParams {
+  search?: string
+  sort?: string
+  page?: number
+  negocioId?: string // <--- Nuevo parámetro para filtro directo por ID de negocio
+}
+
+// Campos permitidos para ordenamiento directo en el modelo Usuario
+const ALLOWED_SORT_FIELDS: (keyof Prisma.UsuarioOrderByWithRelationInput)[] = [
+  'nombre',
+  'apellido',
+  'email',
+  'rol',
+  'bancoOProveedor',
+  'activo',
+  'createdAt',
+]
+
+export async function getUsers({
+  search = '',
+  sort = '',
+  page = 1,
+  negocioId,
+}: GetUsersParams) {
+  try {
+    const limit = 10
+    const skip = (page - 1) * limit
+
+    // 1. Manejo del ordenamiento
+    let orderBy: Prisma.UsuarioOrderByWithRelationInput = { createdAt: 'desc' }
+
+    if (sort) {
+      const isDesc = sort.endsWith('Desc')
+      const isAsc = sort.endsWith('Asc')
+
+      if (isDesc || isAsc) {
+        const direction: 'asc' | 'desc' = isDesc ? 'desc' : 'asc'
+        const field = sort.slice(0, isDesc ? -4 : -3)
+
+        // Caso especial: Ordenar por el nombre de la relación Negocio
+        if (field === 'negocio') {
+          orderBy = {
+            negocio: {
+              nombre: direction,
+            },
+          }
+        } 
+        // Ordenar por campos directos permitidos de Usuario
+        else if (ALLOWED_SORT_FIELDS.includes(field as keyof Prisma.UsuarioOrderByWithRelationInput)) {
+          orderBy = { [field]: direction }
+        }
+      }
+    }
+
+    // 2. Construcción de condiciones WHERE
+    const whereConditions: Prisma.UsuarioWhereInput[] = []
+
+    // Filtro por ID de negocio si viene presente
+    if (negocioId) {
+      whereConditions.push({ negocioId })
+    }
+
+    // Filtro de búsqueda general
+    if (search.trim()) {
+      const query = search.trim()
+      whereConditions.push({
+        OR: [
+          { nombre: { contains: query, mode: 'insensitive' } },
+          { apellido: { contains: query, mode: 'insensitive' } },
+          { email: { contains: query, mode: 'insensitive' } },
+          { bancoOProveedor: { contains: query, mode: 'insensitive' } },
+          { alias: { contains: query, mode: 'insensitive' } },
+          { cbuCvu: { contains: query, mode: 'insensitive' } },
+          // Búsqueda textual por el nombre del negocio relacionado
+          { negocio: { nombre: { contains: query, mode: 'insensitive' } } },
+        ],
+      })
+    }
+
+    // Combinar los filtros dentro del objeto `where`
+    const whereCondition: Prisma.UsuarioWhereInput =
+      whereConditions.length > 0 ? { AND: whereConditions } : {}
+
+    // 3. Consulta a la base de datos
+    const [data, totalCount] = await Promise.all([
+      prisma.usuario.findMany({
+        where: whereCondition,
+        orderBy,
+        take: limit,
+        skip,
+        include: {
+          negocio: {
+            select: { id: true, nombre: true },
+          },
+        },
+      }),
+      prisma.usuario.count({
+        where: whereCondition,
+      }),
+    ])
+
+    return {
+      success: true,
+      data,
+      totalPages: Math.ceil(totalCount / limit) || 1,
+    }
+  } catch (error) {
+    console.error('Error en getUsers:', error)
+    return {
+      success: false,
+      message: 'Error al obtener la lista de usuarios',
+      data: [],
+      totalPages: 1,
+    }
+  }
+}
 
 export interface PreRegisterUserState {
   error?: string

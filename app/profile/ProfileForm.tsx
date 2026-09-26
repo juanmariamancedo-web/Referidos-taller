@@ -149,7 +149,7 @@ export default function ProfileForm({ userData }: ProfileFormProps) {
                   Correo electrónico
                 </label>
                 <Link
-                  href="/profile/change-email"
+                  href="/profile/cambiar-email"
                   className="text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 hover:underline transition-colors"
                 >
                   Solicitar cambio de email →

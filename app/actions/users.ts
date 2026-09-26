@@ -6,7 +6,212 @@ import { generateRandomCode, hashToken } from '@/lib/crypto'
 import { revalidatePath } from 'next/cache'
 import { sendVerificationEmail } from '@/lib/mailer'
 import { Prisma } from '@prisma/client'
+import { Rol } from "@prisma/client"
 
+export interface UpdateUserInput {
+  nombre?: string
+  apellido?: string
+  email?: string
+  rol?: Rol
+  activo?: boolean
+  alias?: string
+  cbuCvu?: string
+  bancoOProveedor?: string
+}
+
+export async function updateUser(targetUserId: string, formData: UpdateUserInput) {
+  try {
+    // 1. Obtener usuario en sesión que ejecuta la acción
+    const { data: currentUser } = await getUserAuth()
+
+    if (!currentUser) {
+      return { success: false, error: "No autorizado. Inicie sesión nuevamente." }
+    }
+
+    const isAdmin = currentUser.rol === "ADMIN"
+    const isGerente = currentUser.rol === "GERENTE"
+
+    // Si no es ni Admin ni Gerente -> Denegar
+    if (!isAdmin && !isGerente) {
+      return { success: false, error: "No tienes permisos para modificar usuarios." }
+    }
+
+    // 2. Buscar al usuario objetivo en la BD
+    const targetUser = await prisma.usuario.findUnique({
+      where: { id: targetUserId },
+    })
+
+    if (!targetUser) {
+      return { success: false, error: "El usuario a modificar no existe." }
+    }
+
+    // 3. Restricción de Negocio para Gerentes
+    if (isGerente && targetUser.negocioId !== currentUser.negocioId) {
+      return {
+        success: false,
+        error: "No tienes permiso para modificar usuarios asignados a otro negocio.",
+      }
+    }
+
+    // 4. Validación manual de campos en Backend
+    const errors: Record<string, string> = {}
+
+    // Apellido obligatorio
+    if (!formData.apellido || formData.apellido.trim() === "") {
+      errors.apellido = "El apellido es obligatorio."
+    }
+
+    // Restricción de rol para Gerentes
+    if (isGerente && formData.rol === "ADMIN") {
+      errors.rol = "Un Gerente no tiene permisos para asignar el rol de Administrador."
+    }
+
+    // CBU / CVU: Opcional, pero si viene debe ser estrictamente de 22 dígitos numéricos
+    if (formData.cbuCvu && formData.cbuCvu.trim() !== "") {
+      const cleanCbu = formData.cbuCvu.trim()
+      if (cleanCbu.length !== 22 || !/^\d+$/.test(cleanCbu)) {
+        errors.cbuCvu = "El CBU/CVU debe estar compuesto por exactamente 22 números."
+      }
+    }
+
+    // Si se registraron errores de validación, se retornan al cliente sin tocar la BD
+    if (Object.keys(errors).length > 0) {
+      return {
+        success: false,
+        error: "Por favor, corrige los errores señalados en el formulario.",
+        errors,
+      }
+    }
+
+    // 5. Ejecutar actualización en la base de datos preservando el email original
+    const updatedUser = await prisma.usuario.update({
+      where: { id: targetUserId },
+      data: {
+        nombre: formData.nombre?.trim() || null,
+        apellido: formData.apellido?.trim() || null,
+        // Mantener el email actual de la base de datos sin cambios
+        email: targetUser.email,
+        rol: formData.rol,
+        activo: Boolean(formData.activo),
+        alias: formData.alias?.trim() || null,
+        cbuCvu: formData.cbuCvu?.trim() || null,
+        bancoOProveedor: formData.bancoOProveedor?.trim() || null,
+      },
+      select: {
+        id: true,
+        nombre: true,
+        apellido: true,
+        email: true,
+        rol: true,
+        activo: true,
+        alias: true,
+        cbuCvu: true,
+        bancoOProveedor: true,
+        negocioId: true,
+        updatedAt: true,
+      },
+    })
+
+    // Revalidar el path de Next.js para purgar caché
+    revalidatePath(`/usuarios/${targetUserId}`)
+
+    return {
+      success: true,
+      data: updatedUser,
+    }
+  } catch (error) {
+    console.error("Error en updateUser con Prisma:", error)
+    return {
+      success: false,
+      error: "Ocurrió un error inesperado al intentar actualizar el usuario.",
+    }
+  }
+}
+
+export async function getUserById(targetUserId: string) {
+  try {
+    // 1. Obtener el usuario autenticado en la sesión
+    const { data: currentUser } = await getUserAuth()
+
+    if (!currentUser) {
+      return { success: false, error: "No autorizado. Inicie sesión nuevamente." }
+    }
+
+    const isSelf = currentUser.id === targetUserId
+    const isAdmin = currentUser.rol === "ADMIN"
+    const isGerente = currentUser.rol === "GERENTE"
+
+    // Si no es el mismo usuario, ni Admin, ni Gerente -> Denegar acceso
+    if (!isSelf && !isAdmin && !isGerente) {
+      return { success: false, error: "No tienes permisos para ver este perfil." }
+    }
+
+    // 2. Construir la cláusula `where` dinámicamente según el Rol
+    const whereCondition: Prisma.UsuarioWhereInput = {
+      id: targetUserId,
+    }
+
+    // Si es GERENTE (y no es Admin ni está consultando su propio perfil),
+    // forzamos a que el usuario buscado pertenezca a su mismo negocio
+    if (isGerente && !isAdmin && !isSelf) {
+      if (!currentUser.negocioId) {
+        return { 
+          success: false, 
+          error: "El gerente actual no tiene un negocio asignado." 
+        }
+      }
+      
+      whereCondition.negocioId = currentUser.negocioId
+    }
+
+    // 3. Consulta a Prisma
+    const targetUser = await prisma.usuario.findFirst({
+      where: whereCondition,
+      select: {
+        id: true,
+        nombre: true,
+        apellido: true,
+        email: true,
+        rol: true,
+        activo: true,
+        alias: true,
+        cbuCvu: true,
+        bancoOProveedor: true,
+        qrToken: true,
+        qrCreatedAt: true,
+        negocioId: true,
+        negocio: {
+          select: {
+            id: true,
+            // Agrega campos del modelo Negocio que necesites (ej. nombre)
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+
+    // Si no lo encuentra (porque no existe o porque pertenecía a otro negocio y el Gerente no tenía acceso)
+    if (!targetUser) {
+      return { 
+        success: false, 
+        error: "Usuario no encontrado o no tienes permisos para acceder a este perfil." 
+      }
+    }
+
+    return {
+      success: true,
+      data: targetUser,
+    }
+
+  } catch (error) {
+    console.error("Error al obtener usuario en Prisma:", error)
+    return { 
+      success: false, 
+      error: "Ocurrió un error inesperado en el servidor." 
+    }
+  }
+}
 
 interface GetUsersParams {
   search?: string

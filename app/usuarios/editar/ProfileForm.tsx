@@ -93,6 +93,8 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
     })
   }
 
+  const hasErrors = Object.keys(errors).length > 0
+
   return (
     <div className="mx-auto max-w-2xl p-6 w-full">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
@@ -100,13 +102,14 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
           Editar Usuario
         </h2>
 
-        {/* Mensajes de notificación */}
-        {serverError && (
-          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 text-xs rounded-lg">
-            {serverError}
+        {/* Mensaje de error general de servidor o de validación */}
+        {(serverError || hasErrors) && (
+          <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-medium rounded-lg">
+            {serverError || "Por favor, corrige los errores señalados en el formulario."}
           </div>
         )}
 
+        {/* Mensaje de éxito */}
         {successMessage && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 text-xs rounded-lg">
             {successMessage}
@@ -114,7 +117,7 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Seccion 1: Datos Personales */}
+          {/* Sección 1: Datos Personales */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
               Datos Personales
@@ -130,7 +133,11 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
                   name="nombre"
                   value={formData.nombre}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
+                  className={`w-full rounded-lg border bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${
+                    errors.nombre
+                      ? "border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 dark:border-slate-700 focus:ring-slate-950 dark:focus:ring-slate-300"
+                  }`}
                 />
                 {errors.nombre && (
                   <p className="text-xs text-rose-500 mt-1">{errors.nombre}</p>
@@ -146,7 +153,11 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
                   name="apellido"
                   value={formData.apellido}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
+                  className={`w-full rounded-lg border bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${
+                    errors.apellido
+                      ? "border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 dark:border-slate-700 focus:ring-slate-950 dark:focus:ring-slate-300"
+                  }`}
                 />
                 {errors.apellido && (
                   <p className="text-xs text-rose-500 mt-1">{errors.apellido}</p>
@@ -154,7 +165,7 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
               </div>
             </div>
 
-            {/* Email con enlace a verificación */}
+            {/* Email */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -179,7 +190,7 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
 
           <hr className="border-slate-200 dark:border-slate-800" />
 
-          {/* Seccion 2: Datos de Cobro / Transferencia */}
+          {/* Sección 2: Datos de Cobro */}
           <div className="space-y-4">
             <div>
               <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
@@ -201,7 +212,11 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
                   value={formData.alias}
                   onChange={handleChange}
                   placeholder="ej. mi.alias.mp"
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
+                  className={`w-full rounded-lg border bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${
+                    errors.alias
+                      ? "border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 dark:border-slate-700 focus:ring-slate-950 dark:focus:ring-slate-300"
+                  }`}
                 />
                 {errors.alias && (
                   <p className="text-xs text-rose-500 mt-1">{errors.alias}</p>
@@ -218,7 +233,11 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
                   value={formData.bancoOProveedor}
                   onChange={handleChange}
                   placeholder="ej. Mercado Pago, Banco Nación..."
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
+                  className={`w-full rounded-lg border bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${
+                    errors.bancoOProveedor
+                      ? "border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 dark:border-slate-700 focus:ring-slate-950 dark:focus:ring-slate-300"
+                  }`}
                 />
                 {errors.bancoOProveedor && (
                   <p className="text-xs text-rose-500 mt-1">{errors.bancoOProveedor}</p>
@@ -237,7 +256,11 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
                 onChange={handleChange}
                 placeholder="22 dígitos numéricos"
                 maxLength={22}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
+                className={`w-full rounded-lg border font-mono bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${
+                  errors.cbuCvu
+                    ? "border-rose-500 focus:ring-rose-500"
+                    : "border-slate-300 dark:border-slate-700 focus:ring-slate-950 dark:focus:ring-slate-300"
+                }`}
               />
               {errors.cbuCvu && (
                 <p className="text-xs text-rose-500 mt-1">{errors.cbuCvu}</p>
@@ -247,7 +270,7 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
 
           <hr className="border-slate-200 dark:border-slate-800" />
 
-          {/* Seccion 3: Rol y Estado */}
+          {/* Sección 3: Permisos y Cuenta */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
               Permisos y Cuenta
@@ -261,7 +284,11 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
                 name="rol"
                 value={formData.rol}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
+                className={`w-full rounded-lg border bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${
+                  errors.rol
+                    ? "border-rose-500 focus:ring-rose-500"
+                    : "border-slate-300 dark:border-slate-700 focus:ring-slate-950 dark:focus:ring-slate-300"
+                }`}
               >
                 {availableRoles.map((roleOpt) => (
                   <option key={roleOpt.value} value={roleOpt.value}>

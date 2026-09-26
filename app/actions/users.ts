@@ -61,27 +61,6 @@ export async function updateUser(targetUserId: string, formData: UpdateUserInput
       errors.apellido = "El apellido es obligatorio."
     }
 
-    // Email obligatorio, formato y unicidad en Prisma
-    if (!formData.email || formData.email.trim() === "") {
-      errors.email = "El correo electrónico es obligatorio."
-    } else {
-      const emailClean = formData.email.trim().toLowerCase()
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-      if (!emailRegex.test(emailClean)) {
-        errors.email = "El formato del correo electrónico no es válido."
-      } else if (emailClean !== targetUser.email.toLowerCase()) {
-        // Verificar si otro usuario ya usa ese email
-        const existingEmail = await prisma.usuario.findUnique({
-          where: { email: emailClean },
-        })
-
-        if (existingEmail) {
-          errors.email = "Este correo electrónico ya está en uso por otro usuario."
-        }
-      }
-    }
-
     // Restricción de rol para Gerentes
     if (isGerente && formData.rol === "ADMIN") {
       errors.rol = "Un Gerente no tiene permisos para asignar el rol de Administrador."
@@ -104,13 +83,14 @@ export async function updateUser(targetUserId: string, formData: UpdateUserInput
       }
     }
 
-    // 5. Ejecutar actualización en la base de datos con Prisma
+    // 5. Ejecutar actualización en la base de datos preservando el email original
     const updatedUser = await prisma.usuario.update({
       where: { id: targetUserId },
       data: {
         nombre: formData.nombre?.trim() || null,
         apellido: formData.apellido?.trim() || null,
-        email: formData.email!.trim().toLowerCase(),
+        // Mantener el email actual de la base de datos sin cambios
+        email: targetUser.email,
         rol: formData.rol,
         activo: Boolean(formData.activo),
         alias: formData.alias?.trim() || null,

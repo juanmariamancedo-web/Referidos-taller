@@ -14,8 +14,9 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Iniciando la siembra de la base de datos (Seed)...');
 
-  // 1. Limpiar base de datos previa para evitar duplicados
+  // 1. Limpiar base de datos previa para evitar duplicados en el orden correcto de FK
   await prisma.cupon.deleteMany();
+  await prisma.cliente.deleteMany(); // <--- Limpieza de clientes agregada
   await prisma.liquidacionDetalle.deleteMany();
   await prisma.pagoNegocio.deleteMany();
   await prisma.liquidacion.deleteMany();
@@ -58,6 +59,7 @@ async function main() {
   const admin = await prisma.usuario.create({
     data: {
       nombre: 'Carlos Admin',
+      apellido: 'Pérez',
       email: 'admin@sistema.com',
       passwordHash: hashedPassword,
       rol: Rol.ADMIN,
@@ -67,7 +69,8 @@ async function main() {
 
   const vendedor1 = await prisma.usuario.create({
     data: {
-      nombre: 'Juan Pérez',
+      nombre: 'Juan',
+      apellido: 'Pérez',
       email: 'juan.perez@taller.com',
       passwordHash: hashedPassword,
       rol: Rol.VENDEDOR,
@@ -82,7 +85,8 @@ async function main() {
 
   const vendedor2 = await prisma.usuario.create({
     data: {
-      nombre: 'María Gómez',
+      nombre: 'María',
+      apellido: 'Gómez',
       email: 'maria.gomez@lubri.com',
       passwordHash: hashedPassword,
       rol: Rol.VENDEDOR,
@@ -97,7 +101,33 @@ async function main() {
 
   console.log('👤 Usuarios (Admin y Vendedores) creados.');
 
-  // 4. Crear Cupones
+  // 4. Crear Clientes
+  const cliente1 = await prisma.cliente.create({
+    data: {
+      telefono: '541198765432',
+      nombre: 'Gonzalo Fernández',
+      email: 'cliente1@gmail.com',
+    },
+  });
+
+  const cliente2 = await prisma.cliente.create({
+    data: {
+      telefono: '541155554444',
+      nombre: 'Anabel Ruiz',
+      email: 'cliente2@gmail.com',
+    },
+  });
+
+  const cliente3 = await prisma.cliente.create({
+    data: {
+      telefono: '541133332222',
+      nombre: 'Martín Silva',
+    },
+  });
+
+  console.log('👥 Clientes creados.');
+
+  // 5. Crear Cupones vinculados a los Clientes
   const cuponPendiente = await prisma.cupon.create({
     data: {
       codigo: 'CUPON-1001',
@@ -106,13 +136,12 @@ async function main() {
       valorDescuento: 15.0, // 15%
       terminosCondiciones: 'Válido para cambio de aceite y filtro.',
       fechaExpiracion: new Date('2026-12-31'),
-      clienteTelefono: '+541198765432',
-      clienteEmail: 'cliente1@gmail.com',
       walletPlataforma: PlataformaWallet.APPLE,
       walletSerial: 'apple-serial-1001',
       walletUrl: 'https://wallet.apple.com/passes/1001',
       agregadoAWallet: true,
       usuarioId: vendedor1.id,
+      clienteId: cliente1.id,
     },
   });
 
@@ -124,9 +153,8 @@ async function main() {
       valorDescuento: 5000.0, // $5000
       terminosCondiciones: 'Descuento directo en alineación y balanceo.',
       fechaExpiracion: new Date('2026-10-15'),
-      clienteTelefono: '+541155554444',
-      clienteEmail: 'cliente2@gmail.com',
       usuarioId: vendedor1.id,
+      clienteId: cliente2.id,
       fechaUso: new Date('2026-09-10'),
     },
   });
@@ -137,18 +165,18 @@ async function main() {
       estado: EstadoCupon.USADO,
       tipoDescuento: TipoDescuento.PORCENTAJE,
       valorDescuento: 20.0,
-      clienteTelefono: '+541133332222',
       walletPlataforma: PlataformaWallet.GOOGLE,
       walletSerial: 'google-serial-1003',
       agregadoAWallet: true,
       usuarioId: vendedor2.id,
+      clienteId: cliente3.id,
       fechaUso: new Date('2026-09-12'),
     },
   });
 
   console.log('🎟️ Cupones creados.');
 
-  // 5. Crear Corrida de Liquidación (ejemplo periodo pasado)
+  // 6. Crear Corrida de Liquidación
   const liquidacion = await prisma.liquidacion.create({
     data: {
       periodo: '2026-09-Q1',
@@ -158,10 +186,10 @@ async function main() {
     },
   });
 
-  // 6. Crear Pago al Negocio 1
+  // 7. Crear Pago al Negocio 1
   const pagoNegocio1 = await prisma.pagoNegocio.create({
     data: {
-      monto: 1000.0, // 20% de comisión retenida sobre $5000 brut de vendedor1
+      monto: 1000.0, // 20% de comisión retenida sobre $5000 bruto de vendedor1
       estado: EstadoLiquidacion.PAGADA,
       metodoPago: MetodoPago.TRANSFERENCIA,
       numeroTransferencia: 'TRX-9988776655',
@@ -171,7 +199,7 @@ async function main() {
     },
   });
 
-  // 7. Crear Detalle de Liquidación del Vendedor 1 y vincular el cupón usado
+  // 8. Crear Detalle de Liquidación del Vendedor 1 y vincular el cupón usado
   const detalleVendedor1 = await prisma.liquidacionDetalle.create({
     data: {
       montoBruto: 5000.0,

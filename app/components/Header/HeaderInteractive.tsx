@@ -72,7 +72,7 @@ export function HeaderInteractive({ children }: HeaderInteractiveProps) {
               <div className="container p-3 flex items-center">
                 <button
                   onClick={toggleOpen}
-                  className="z-10 bg-neutral-200/80 dark:bg-neutral-800/80 hover:bg-black/10 dark:hover:bg-white/10 rounded-full px-3 py-1 text-gray-800 dark:text-white transition"
+                  className="z-50 bg-neutral-200/80 dark:bg-neutral-800/80 hover:bg-black/10 dark:hover:bg-white/10 rounded-full px-3 py-1 text-gray-800 dark:text-white transition"
                   aria-label="Cerrar menú"
                 >
                   <svg

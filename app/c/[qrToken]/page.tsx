@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
-import FormularioCupon from "./FormularioCupon"
+import FormularioCupon from "@/app/c/[qrToken]/FormularioCupon"
 
 interface PageProps {
   params: Promise<{ qrToken: string }>
@@ -31,7 +31,7 @@ export default async function GenerarCuponPage({ params }: PageProps) {
   const nombreVendedor = [vendedor.nombre, vendedor.apellido].filter(Boolean).join(" ")
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white flex items-center justify-center p-4">
+    <main className="min-h-screen text-gray-900 dark:text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4">
         {/* Header con la identidad del negocio */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-black/20 text-center">

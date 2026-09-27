@@ -99,6 +99,22 @@ model Usuario {
   @@index([activo])
 }
 
+model Cliente {
+  id        String   @id @default(cuid())
+  telefono  String   @unique // Identificador principal (WhatsApp/Celular)
+  nombre    String?
+  email     String?
+  bloqueado Boolean  @default(false) // Para frenar abusos/spam
+
+  cupones Cupon[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([telefono])
+  @@index([email])
+}
+
 model Cupon {
   id     String      @id @default(cuid())
   codigo String      @unique // codificado en el QR / mostrado al cliente
@@ -106,19 +122,17 @@ model Cupon {
 
   // Términos del descuento
   tipoDescuento       TipoDescuento
-  valorDescuento      Decimal       @db.Decimal(10, 2) // monto fijo o % según tipoDescuento
+  valorDescuento      Decimal       @db.Decimal(10, 2)
   terminosCondiciones String?
   fechaExpiracion     DateTime?
 
-  // Contacto del cliente que recibió el cupón (para enviarle el link de
-  // wallet y/o avisarle). Vive acá, no en una tabla Cliente aparte, porque
-  // en la v1 el cliente no tiene cuenta ni historial propio.
-  clienteTelefono String?
-  clienteEmail    String?
+  // Relación con el Cliente (Reemplaza a clienteTelefono y clienteEmail)
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
 
   // Soporte para Apple Wallet / Google Wallet
   walletPlataforma PlataformaWallet?
-  walletSerial     String?           @unique // requerido por Apple/Google para poder actualizar el pase después (ej. marcarlo "usado")
+  walletSerial     String?           @unique
   walletUrl        String?
   agregadoAWallet  Boolean           @default(false)
 
@@ -126,7 +140,6 @@ model Cupon {
   usuarioId String
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
-  // Nulo hasta que el cupón se consolida en un detalle de liquidación del vendedor
   liquidacionDetalleId String?
   liquidacionDetalle   LiquidacionDetalle? @relation(fields: [liquidacionDetalleId], references: [id])
 
@@ -134,6 +147,7 @@ model Cupon {
   fechaUso  DateTime? // fecha de canje efectivo en el taller
 
   @@index([usuarioId])
+  @@index([clienteId])
   @@index([liquidacionDetalleId])
   @@index([estado])
   @@index([fechaUso])

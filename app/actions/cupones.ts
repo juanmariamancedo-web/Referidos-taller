@@ -206,3 +206,81 @@ export async function getCuponById(id: string): Promise<GetCuponByIdResponse> {
     }
   }
 }
+
+export interface ValidarCuponResponse {
+  success: boolean
+  message: string
+  cupon?: {
+    codigo: string
+    valorDescuento: number
+    tipoDescuento: string
+    clienteNombre?: string
+    clienteTelefono: string
+  }
+}
+
+export async function validarYCanjearCupon(codigo: string): Promise<ValidarCuponResponse> {
+  try {
+    if (!codigo || !codigo.trim()) {
+      return { success: false, message: "El código de cupón es requerido." }
+    }
+
+    const codigoLimpio = codigo.trim()
+
+    // 1. Buscar el cupón con sus datos de cliente
+    const cupon = await prisma.cupon.findUnique({
+      where: { codigo: codigoLimpio },
+      include: { cliente: true },
+    })
+
+    if (!cupon) {
+      return { success: false, message: "Cupón no encontrado." }
+    }
+
+    // 2. Validar Estado
+    if (cupon.estado === EstadoCupon.USADO) {
+      return {
+        success: false,
+        message: `El cupón ya fue canjeado previamente el ${cupon.fechaUso?.toLocaleDateString("es-AR")}.`,
+      }
+    }
+
+    if (cupon.estado === EstadoCupon.VENCIDO) {
+      return { success: false, message: "El cupón se encuentra vencido." }
+    }
+
+    // 3. Validar Expiración
+    if (cupon.fechaExpiracion && new Date(cupon.fechaExpiracion) < new Date()) {
+      // Marcar como vencido automáticamente si expiró
+      await prisma.cupon.update({
+        where: { id: cupon.id },
+        data: { estado: EstadoCupon.VENCIDO },
+      })
+      return { success: false, message: "El cupón ha expirado." }
+    }
+
+    // 4. Canjear Cupón (Cambiar a USADO y fijar fechaUso)
+    const cuponActualizado = await prisma.cupon.update({
+      where: { id: cupon.id },
+      data: {
+        estado: EstadoCupon.USADO,
+        fechaUso: new Date(),
+      },
+    })
+
+    return {
+      success: true,
+      message: "¡Cupón validado y canjeado con éxito!",
+      cupon: {
+        codigo: cuponActualizado.codigo,
+        valorDescuento: Number(cuponActualizado.valorDescuento),
+        tipoDescuento: cuponActualizado.tipoDescuento,
+        clienteNombre: cupon.cliente.nombre || undefined,
+        clienteTelefono: cupon.cliente.telefono,
+      },
+    }
+  } catch (error) {
+    console.error("Error al validar cupón:", error)
+    return { success: false, message: "Ocurrió un error al procesar el cupón." }
+  }
+}

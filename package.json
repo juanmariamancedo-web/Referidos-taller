@@ -16,6 +16,8 @@
     "@prisma/client": "^6.19.3",
     "@react-email/components": "^1.0.12",
     "@reduxjs/toolkit": "^2.12.0",
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.23.0",
     "bcryptjs": "^3.0.3",
     "html-to-image": "^1.11.13",
     "next": "16.3.5",

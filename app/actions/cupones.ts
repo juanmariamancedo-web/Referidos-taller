@@ -3,7 +3,10 @@
 import { prisma } from "@/lib/prisma"
 import { EstadoCupon, Prisma } from "@prisma/client"
 
-// 1. Definimos la forma exacta del payload usando los tipos generados de Prisma
+// ----------------------------------------------------------------------
+// 1. Definición de Payloads de Prisma
+// ----------------------------------------------------------------------
+
 const cuponWithRelations = Prisma.validator<Prisma.CuponDefaultArgs>()({
   select: {
     id: true,
@@ -32,8 +35,83 @@ const cuponWithRelations = Prisma.validator<Prisma.CuponDefaultArgs>()({
   },
 })
 
-// Extraemos el tipo resultante automáticamente
-export type CuponConRelaciones = Prisma.CuponGetPayload<typeof cuponWithRelations>
+const cuponDetallePayload = Prisma.validator<Prisma.CuponDefaultArgs>()({
+  include: {
+    cliente: true,
+    usuario: {
+      include: {
+        negocio: {
+          select: {
+            id: true,
+            nombre: true,
+            porcentajeFee: true,
+          },
+        },
+      },
+    },
+    liquidacionDetalle: {
+      include: {
+        liquidacion: {
+          select: {
+            id: true,
+            periodo: true,
+            estado: true,
+          },
+        },
+      },
+    },
+  },
+})
+
+// ----------------------------------------------------------------------
+// 2. Tipos Sanitizados para Client Components (sin Decimal ni Date raw)
+// ----------------------------------------------------------------------
+
+type RawCuponConRelaciones = Prisma.CuponGetPayload<typeof cuponWithRelations>
+type RawCuponDetalle = Prisma.CuponGetPayload<typeof cuponDetallePayload>
+
+// Tipo sanitizado para listados
+export type CuponConRelaciones = Omit<
+  RawCuponConRelaciones,
+  "valorDescuento" | "createdAt" | "fechaExpiracion" | "fechaUso"
+> & {
+  valorDescuento: number
+  createdAt: string
+  fechaExpiracion: string | null
+  fechaUso: string | null
+}
+
+// Tipo sanitizado para vistas de detalle
+export type CuponDetalle = Omit<
+  RawCuponDetalle,
+  "valorDescuento" | "createdAt" | "fechaExpiracion" | "fechaUso"
+> & {
+  valorDescuento: number
+  createdAt: string
+  fechaExpiracion: string | null
+  fechaUso: string | null
+}
+
+// ----------------------------------------------------------------------
+// 3. Helper de Sanitización
+// ----------------------------------------------------------------------
+
+function formatCupon<T extends Record<string, any>>(cupon: T) {
+  if (!cupon) return null
+  return {
+    ...cupon,
+    valorDescuento: cupon.valorDescuento ? Number(cupon.valorDescuento) : 0,
+    createdAt: cupon.createdAt ? new Date(cupon.createdAt).toISOString() : "",
+    fechaExpiracion: cupon.fechaExpiracion
+      ? new Date(cupon.fechaExpiracion).toISOString()
+      : null,
+    fechaUso: cupon.fechaUso ? new Date(cupon.fechaUso).toISOString() : null,
+  }
+}
+
+// ----------------------------------------------------------------------
+// 4. Interfaces de Respuesta
+// ----------------------------------------------------------------------
 
 interface GetCuponesParams {
   search?: string
@@ -52,6 +130,25 @@ export interface GetCuponesResponse {
   currentPage?: number
 }
 
+export interface GetCuponByIdResponse {
+  success: boolean
+  message?: string
+  data?: CuponDetalle | null
+}
+
+export interface ValidarCuponResponse {
+  success: boolean
+  message: string
+  data?: any
+}
+
+// ----------------------------------------------------------------------
+// 5. Server Actions
+// ----------------------------------------------------------------------
+
+/**
+  Obtiene un listado paginado de cupones filtrado y ordenado.
+ */
 export async function getCupones({
   search = "",
   sort = "",
@@ -115,7 +212,7 @@ export async function getCupones({
         orderBy,
         skip,
         take: limit,
-        select: cuponWithRelations.select, // Usamos la misma estructura declarada arriba
+        select: cuponWithRelations.select,
       }),
     ])
 
@@ -123,7 +220,7 @@ export async function getCupones({
 
     return {
       success: true,
-      data: cupones,
+      data: cupones.map((c) => formatCupon(c) as CuponConRelaciones),
       totalItems,
       totalPages,
       currentPage,
@@ -141,44 +238,9 @@ export async function getCupones({
   }
 }
 
-
-// Definimos la estructura del payload para la vista de detalle
-const cuponDetallePayload = Prisma.validator<Prisma.CuponDefaultArgs>()({
-  include: {
-    cliente: true,
-    usuario: {
-      include: {
-        negocio: {
-          select: {
-            id: true,
-            nombre: true,
-            porcentajeFee: true,
-          },
-        },
-      },
-    },
-    liquidacionDetalle: {
-      include: {
-        liquidacion: {
-          select: {
-            id: true,
-            periodo: true,
-            estado: true,
-          },
-        },
-      },
-    },
-  },
-})
-
-export type CuponDetalle = Prisma.CuponGetPayload<typeof cuponDetallePayload>
-
-export interface GetCuponByIdResponse {
-  success: boolean
-  message?: string
-  data?: CuponDetalle | null
-}
-
+/**
+  Obtiene la información detallada de un cupón por su ID.
+ */
 export async function getCuponById(id: string): Promise<GetCuponByIdResponse> {
   try {
     if (!id) {
@@ -196,7 +258,7 @@ export async function getCuponById(id: string): Promise<GetCuponByIdResponse> {
 
     return {
       success: true,
-      data: cupon,
+      data: formatCupon(cupon) as unknown as CuponDetalle,
     }
   } catch (error) {
     console.error("Error al obtener el detalle del cupón:", error)
@@ -207,80 +269,121 @@ export async function getCuponById(id: string): Promise<GetCuponByIdResponse> {
   }
 }
 
-export interface ValidarCuponResponse {
-  success: boolean
-  message: string
-  cupon?: {
-    codigo: string
-    valorDescuento: number
-    tipoDescuento: string
-    clienteNombre?: string
-    clienteTelefono: string
-  }
-}
-
-export async function validarYCanjearCupon(codigo: string): Promise<ValidarCuponResponse> {
+/**
+  Obtiene un cupón por su CÓDIGO (usado para la página /validar/[codigo]).
+ */
+export async function getCuponByCodigo(codigo: string) {
   try {
-    if (!codigo || !codigo.trim()) {
-      return { success: false, message: "El código de cupón es requerido." }
+    if (!codigo || typeof codigo !== "string") {
+      return { success: false, message: "Código no provisto o inválido." }
     }
 
-    const codigoLimpio = codigo.trim()
+    const codigoLimpio = codigo.trim().toUpperCase()
 
-    // 1. Buscar el cupón con sus datos de cliente
     const cupon = await prisma.cupon.findUnique({
       where: { codigo: codigoLimpio },
-      include: { cliente: true },
+      include: {
+        cliente: true,
+        usuario: {
+          include: {
+            negocio: true,
+          },
+        },
+      },
     })
 
     if (!cupon) {
       return { success: false, message: "Cupón no encontrado." }
     }
 
-    // 2. Validar Estado
-    if (cupon.estado === EstadoCupon.USADO) {
+    return {
+      success: true,
+      data: formatCupon(cupon),
+    }
+  } catch (error) {
+    console.error("Error al obtener cupón por código:", error)
+    return { success: false, message: "Error al consultar la base de datos." }
+  }
+}
+
+/**
+  Valida y cambia el estado de un cupón a USADO.
+ */
+export async function validarYCanjearCupon(
+  codigo: string
+): Promise<ValidarCuponResponse> {
+  try {
+    if (!codigo || typeof codigo !== "string") {
       return {
         success: false,
-        message: `El cupón ya fue canjeado previamente el ${cupon.fechaUso?.toLocaleDateString("es-AR")}.`,
+        message: "El código ingresado no es válido.",
       }
     }
 
-    if (cupon.estado === EstadoCupon.VENCIDO) {
-      return { success: false, message: "El cupón se encuentra vencido." }
+    const codigoLimpio = codigo.trim().toUpperCase()
+
+    const cupon = await prisma.cupon.findUnique({
+      where: { codigo: codigoLimpio },
+      include: {
+        cliente: true,
+        usuario: {
+          include: {
+            negocio: true,
+          },
+        },
+      },
+    })
+
+    if (!cupon) {
+      return {
+        success: false,
+        message: `El código ${codigoLimpio} no existe en el sistema.`,
+      }
     }
 
-    // 3. Validar Expiración
-    if (cupon.fechaExpiracion && new Date(cupon.fechaExpiracion) < new Date()) {
-      // Marcar como vencido automáticamente si expiró
-      await prisma.cupon.update({
-        where: { id: cupon.id },
-        data: { estado: EstadoCupon.VENCIDO },
-      })
-      return { success: false, message: "El cupón ha expirado." }
+    if (cupon.estado === "USADO") {
+      return {
+        success: false,
+        message: "Este cupón ya fue canjeado anteriormente.",
+        data: formatCupon(cupon),
+      }
     }
 
-    // 4. Canjear Cupón (Cambiar a USADO y fijar fechaUso)
-    const cuponActualizado = await prisma.cupon.update({
+    if (cupon.estado === "VENCIDO") {
+      return {
+        success: false,
+        message: "Este cupón se encuentra vencido.",
+        data: formatCupon(cupon),
+      }
+    }
+
+    // Actualizar estado a USADO
+    const cuponCanjeado = await prisma.cupon.update({
       where: { id: cupon.id },
       data: {
-        estado: EstadoCupon.USADO,
+        estado: "USADO",
         fechaUso: new Date(),
+      },
+      include: {
+        cliente: true,
+        usuario: {
+          include: {
+            negocio: true,
+          },
+        },
       },
     })
 
     return {
       success: true,
       message: "¡Cupón validado y canjeado con éxito!",
-      cupon: {
-        codigo: cuponActualizado.codigo,
-        valorDescuento: Number(cuponActualizado.valorDescuento),
-        tipoDescuento: cuponActualizado.tipoDescuento,
-        clienteNombre: cupon.cliente.nombre || undefined,
-        clienteTelefono: cupon.cliente.telefono,
-      },
+      data: formatCupon(cuponCanjeado),
     }
   } catch (error) {
-    console.error("Error al validar cupón:", error)
-    return { success: false, message: "Ocurrió un error al procesar el cupón." }
+    console.error("Error al validar/canjear el cupón:", error)
+    return {
+      success: false,
+      message: "Ocurrió un error en el servidor al intentar validar el cupón.",
+    }
   }
 }

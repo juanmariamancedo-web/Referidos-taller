@@ -21,9 +21,9 @@ export default function CardCuponCliente({ cupon }: CuponProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [descargando, setDescargando] = useState(false);
 
-  // URL a la que apuntará el QR impreso en el cupón (para canje en el taller)
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const urlValidacion = `${baseUrl}/validar/${cupon.codigo}`;
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
+  || (typeof window !== 'undefined' ? window.location.origin : '');
+  const urlValidacion = `${baseUrl}/cupones/validar/${cupon.codigo}`;
   
   // Endpoint ligero para renderizar QR
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(urlValidacion)}`;

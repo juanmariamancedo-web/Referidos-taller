@@ -10,7 +10,7 @@ export default async function ProtectedLayout({
   // 1. Validar autenticación primero
   const { data } = await getUserAuth()
 
-  if(data?.rol !== Rol.NO_VERIFICADO) {
+  if(data && data?.rol !== Rol.NO_VERIFICADO) {
     notFound()
   }
 

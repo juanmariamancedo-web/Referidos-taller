@@ -17,52 +17,60 @@ export async function verifyAndActivateUser(
   prevState: VerifyState,
   formData: FormData
 ): Promise<VerifyState> {
-  const { data } = await getUserAuth()
+  // 1. Validar autenticación
+  const { success, data: authUser } = await getUserAuth()
 
-  if(data && data.rol !== Rol.NO_VERIFICADO){
-    return({
+  if (!success || !authUser) {
+    return {
       success: false,
-      message: "El usuario ya se encuentra verificado"
-    })
+      message: "Debes iniciar sesión para verificar tu cuenta.",
+    }
   }
 
-  // const email = (formData.get('email') as string)?.trim().toLowerCase()
-  const code = (formData.get('code') as string)?.trim()
-  const nombre = (formData.get('nombre') as string)?.trim()
-  const password = formData.get('password') as string
-  const confirmPassword = formData.get('confirmPassword') as string
+  // 2. Si el usuario logueado YA está verificado, rechazar la acción
+  if (authUser.rol !== Rol.NO_VERIFICADO) {
+    return {
+      success: false,
+      message: "El usuario ya se encuentra verificado.",
+    }
+  }
 
-  // 1. Validaciones de formulario
+  // 3. Obtener y limpiar datos del formulario
+  const code = (formData.get("code") as string)?.trim()
+  const nombre = (formData.get("nombre") as string)?.trim()
+  const password = formData.get("password") as string
+  const confirmPassword = formData.get("confirmPassword") as string
+
   if (!code || !nombre || !password || !confirmPassword) {
     return {
       success: false,
-      message: 'Todos los campos son obligatorios.',
+      message: "Todos los campos son obligatorios.",
     }
   }
 
   if (password.length < 6) {
     return {
       success: false,
-      message: 'La contraseña debe tener al menos 6 caracteres.',
-      errors: { password: 'Mínimo 6 caracteres' },
+      message: "La contraseña debe tener al menos 6 caracteres.",
+      errors: { password: "Mínimo 6 caracteres" },
     }
   }
 
   if (password !== confirmPassword) {
     return {
       success: false,
-      message: 'Las contraseñas no coinciden.',
-      errors: { confirmPassword: 'Las contraseñas no coinciden' },
+      message: "Las contraseñas no coinciden.",
+      errors: { confirmPassword: "Las contraseñas no coinciden" },
     }
   }
 
   try {
-    // 2. Calcular el hash del código para buscarlo en la BD
     const tokenHash = hashToken(code)
 
+    // 4. Buscar el código asegurando que corresponda AL EMAIL DEL USUARIO LOGUEADO
     const verificationRecord = await prisma.verificationCode.findFirst({
       where: {
-        // email,
+        email: authUser.email, // 🔒 Crucial: Solo busca códigos asociados al usuario activo
         token: tokenHash,
         used: false,
         expiresAt: { gt: new Date() },
@@ -72,36 +80,22 @@ export async function verifyAndActivateUser(
     if (!verificationRecord) {
       return {
         success: false,
-        message: 'El código de verificación es inválido, ya fue utilizado o ha expirado.',
+        message:
+          "El código de verificación es inválido, ya fue utilizado o ha expirado.",
       }
     }
 
-    // 3. Obtener el usuario pre-registrado
-    const user = await prisma.usuario.findUnique({
-      where: { email: verificationRecord.email },
-    })
-
-    if (!user) {
-      return {
-        success: false,
-        message: 'No se encontró la cuenta de usuario asociada a este correo.',
-      }
-    }
-
-    // 4. Hashear la contraseña nueva
+    // 5. Hashear la contraseña nueva
     const passwordHash = await bcrypt.hash(password, 10)
 
-    // Determinar el rol según la lógica de tu negocio
-    const newRole = user.rol === 'NO_VERIFICADO' ? 'VENDEDOR' : user.rol
-
-    // 5. Actualización atómica
+    // 6. Actualización atómica en base de datos
     await prisma.$transaction([
       prisma.usuario.update({
-        where: { id: user.id },
+        where: { id: authUser.id },
         data: {
           nombre,
           passwordHash,
-          rol: newRole,
+          rol: Rol.VENDEDOR, // O el rol por defecto tras verificar
         },
       }),
       prisma.verificationCode.update({
@@ -110,15 +104,15 @@ export async function verifyAndActivateUser(
       }),
     ])
   } catch (error: any) {
-    console.error('Error en verifyAndActivateUser:', error)
+    console.error("Error en verifyAndActivateUser:", error)
     return {
       success: false,
-      message: 'Ocurrió un error al activar la cuenta. Inténtalo nuevamente.',
+      message: "Ocurrió un error al activar la cuenta. Inténtalo nuevamente.",
     }
   }
 
-  // 6. El redirect debe ejecutarse SIEMPRE fuera del try/catch
-  redirect('/login?verified=true')
+  // 7. Redirección fuera del try/catch
+  redirect("/login?verified=true")
 }
 
 export async function loginAction(prevState: any, formData: FormData) {

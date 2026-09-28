@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
-import FormularioCupon from "@/app/c/[qrToken]/FormularioCupon"
+import FormularioCupon from "@/app/(public)/c/[qrToken]/FormularioCupon"
 
 interface PageProps {
   params: Promise<{ qrToken: string }>

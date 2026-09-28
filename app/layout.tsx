@@ -1,8 +1,6 @@
 "use server";
 
 import { JSX } from "react";
-import { Header } from "@/app/components/Header/HeaderAdminPanel"
-import { Page } from "@/lib/types/page";
 import Link from "next/link";
 import "./globals.css";
 import { cookies } from "next/headers";
@@ -15,29 +13,6 @@ export default async function AdminLayout({children}:{children: JSX.Element}){
 
   const isDark = theme === "dark";
 
-  const adminPages : Page[] = [
-      {
-          name: "Usuarios",
-          href: "/usuarios" 
-      },
-      {
-          name: "Negocios",
-          href: "/negocios"
-      },
-      {
-          name: "Presupuestos",
-          href: "/presupuestos"
-      },
-      {
-          name: "Turnos",
-          href: "/turnos"
-      },
-      {
-          name: "Vehículos",
-          href: "/vehiculos"
-      }
-  ]
-
   return(
       <html lang="es">
         <body className={`${isDark? "dark" : ""}`}>
@@ -48,11 +23,7 @@ export default async function AdminLayout({children}:{children: JSX.Element}){
                         bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(217,216,255,0.5),rgba(255,255,255,0.9))]
                         dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"
                     ></div>
-                    <Header pages={adminPages} homeUrl="/" isDark={isDark} />
-                    <main className="container mx-auto pt-14 px-4">
-                        {children}
-                    </main>
-                    
+                    {children}
                     <div className="p-3 sm:p-0">
                         <footer className="rounded-lg shadow bg-black/5 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6 dark:bg-white/5 dark:text-white backdrop-blur-lg container mx-auto mb-10">
                             <div className="w-full mx-auto max-w-screen-xl p-4 md:flex md:items-center md:justify-between">

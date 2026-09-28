@@ -1,7 +1,7 @@
 "use server"
 
 import { getUserAuth } from "@/app/actions/auth"
-import ProfileForm from "@/app/profile/ProfileForm"
+import ProfileForm from "@/app/(protected)/profile/ProfileForm"
 
 export default async function ProfilePage() {
   // Obtención del usuario en el servidor

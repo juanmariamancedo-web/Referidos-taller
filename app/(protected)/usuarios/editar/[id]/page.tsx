@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { getUserAuth } from "@/app/actions/auth"
 import { getUserById } from "@/app/actions/users" // Importa tu Server Action
-import ProfileForm from "@/app/usuarios/editar/ProfileForm"
+import ProfileForm from "@/app/(protected)/usuarios/editar/ProfileForm"
 
 interface PageProps {
   params: Promise<{ id: string }>

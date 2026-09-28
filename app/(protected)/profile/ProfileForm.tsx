@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useActionState, useState } from 'react'
-import { updateProfileAction } from '../actions/profile'
+import { updateProfileAction } from '@/app/actions/profile'
 import { Usuario } from '@prisma/client'
 
 export type ActionState = {

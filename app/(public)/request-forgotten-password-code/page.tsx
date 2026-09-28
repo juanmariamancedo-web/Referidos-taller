@@ -3,7 +3,7 @@
 import { useActionState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 // Importa la acción correspondiente para resetear la contraseña
-import { resetPasswordAction } from '../actions/requestPasswordAction'; 
+import { resetPasswordAction } from '../../actions/requestPasswordAction'; 
 
 export default function RequestForgottenPasswordCodePage() {
   const [state, formAction, isPending] = useActionState(resetPasswordAction, null);

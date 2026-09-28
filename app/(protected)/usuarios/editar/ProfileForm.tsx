@@ -49,7 +49,6 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
   // Opciones de roles disponibles (sin la opción cliente)
   const availableRoles: { value: Rol; label: string }[] = isManager
     ? [
-        { value: Rol.GERENTE, label: "Gerente" },
         { value: Rol.VENDEDOR, label: "Vendedor" },
       ]
     : [

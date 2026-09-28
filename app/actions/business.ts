@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
+import { Prisma, Rol } from '@prisma/client'
 
 export interface UpdateBusinessState {
   error?: string
@@ -12,6 +12,12 @@ export interface UpdateBusinessState {
  * Obtiene un negocio por su ID junto con el email del primer usuario/encargado asignado.
  */
 export async function getBusinessById(id: string) {
+  const { data } = await getUserAuth()
+
+  if(!data || data.rol !== Rol.ADMIN ){
+    return ({ success: false, message: 'Acceso denegado', data: null })
+  }
+
   try {
     const negocio = await prisma.negocio.findUnique({
       where: { id },
@@ -55,7 +61,7 @@ export async function updateBusiness(
 
   if (!user || user.rol !== 'ADMIN') {
     return {
-      error: 'Acceso denegado: Se requieren permisos de Administrador.',
+      error: 'Acceso denegado.',
     }
   }
 
@@ -171,6 +177,13 @@ const ALLOWED_SORT_FIELDS: (keyof Prisma.NegocioOrderByWithRelationInput)[] = [
 
 export async function getBusiness({ search = '', sort = '', page = 1 }: GetBusinessParams) {
   try {
+    const { data : user } = await getUserAuth()
+
+    if(!user || user.rol !== Rol.ADMIN ){
+      return ({ success: false, message: 'Acceso denegado.', data: null })
+    }
+
+    
     const limit = 10
     const skip = (page - 1) * limit
 
@@ -254,7 +267,7 @@ export async function createBusiness(
 
   if (!user || user.rol !== 'ADMIN') {
     return {
-      error: 'Acceso denegado: Se requieren permisos de Administrador.',
+      error: 'Acceso denegado.',
     }
   }
 

@@ -36,10 +36,10 @@ export async function resetPasswordAction(
     }
 
     // 3. Validar longitud/complejidad mínima de la contraseña
-    if (password.length < 8) {
+    if (password.length < 6) {
       return {
         success: false,
-        message: 'La contraseña debe tener al menos 8 caracteres.',
+        message: 'La contraseña debe tener al menos 6 caracteres.',
       };
     }
 

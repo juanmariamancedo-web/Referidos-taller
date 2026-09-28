@@ -1,6 +1,6 @@
 'use server';
 
-import { Prisma } from '@prisma/client';
+import { Prisma, Rol } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getUserAuth } from '@/app/actions/auth';
 import { sendVerificationEmail } from '@/lib/mailer';
@@ -12,6 +12,7 @@ export type ActionState = {
   message?: string;
   step?: 'request' | 'verify';
   pendingEmail?: string;
+  userId?: string;
   errors?: {
     newEmail?: string;
     code?: string;
@@ -20,39 +21,38 @@ export type ActionState = {
 } | null;
 
 /**
- * Helper interno para verificar si el usuario autenticado tiene permisos
- * para solicitar/modificar el correo del usuario objetivo.
+ * Helper interno para verificar permisos jerárquicos según el rol obtenido de getUserAuth().
  */
 async function validateEmailChangePermission(
-  currentAuthUser: { id: string; rol: string; negocioId?: string | null },
+  currentAuthUser: { id: string; rol: Rol | string; negocioId?: string | null },
   targetUserId: string
 ) {
-  // 1. Si intenta cambiar su propio correo -> Permitido siempre
+  // 1. Si el usuario intenta modificar su propio perfil -> Permitido siempre
   if (currentAuthUser.id === targetUserId) {
-    return { allowed: true, targetUser: null };
+    return { allowed: true };
   }
 
-  // 2. Un VENDEDOR (o cualquier rol sin jerarquía) solo puede cambiar el suyo
-  if (currentAuthUser.rol !== 'ADMIN' && currentAuthUser.rol !== 'GERENTE') {
+  // 2. Si el rol obtenido de getUserAuth no es ADMIN ni GERENTE, no puede modificar a terceros
+  if (currentAuthUser.rol !== Rol.ADMIN && currentAuthUser.rol !== Rol.GERENTE) {
     return {
       allowed: false,
       message: 'Solo puedes solicitar el cambio de tu propio correo electrónico.',
     };
   }
 
-  // 3. Buscar el usuario objetivo en la base de datos
+  // 3. Obtener el usuario objetivo para verificar jerarquías
   const targetUser = await prisma.usuario.findUnique({
     where: { id: targetUserId },
-    select: { id: true, rol: true, negocioId: true, email: true },
+    select: { id: true, rol: true, negocioId: true },
   });
 
   if (!targetUser) {
     return { allowed: false, message: 'El usuario a modificar no existe.' };
   }
 
-  // 4. Reglas de negocio para GERENTE
-  if (currentAuthUser.rol === 'GERENTE') {
-    if (targetUser.rol === 'ADMIN') {
+  // 4. Reglas si el usuario autenticado es GERENTE
+  if (currentAuthUser.rol === Rol.GERENTE) {
+    if (targetUser.rol === Rol.ADMIN) {
       return {
         allowed: false,
         message: 'Un Gerente no puede cambiar el correo de un Administrador.',
@@ -66,30 +66,30 @@ async function validateEmailChangePermission(
     }
   }
 
-  // 5. ADMIN -> Acceso total
-  return { allowed: true, targetUser };
+  // 5. Rol ADMIN -> Acceso global
+  return { allowed: true };
 }
 
 /**
- * Paso 1: Solicitar el cambio de correo electrónico.
- * Genera el código OTP y envía el email al destinatario.
+ * PASO 1: Solicitar código de verificación (OTP).
+ * Requiere sesión activa mediante getUserAuth().
  */
 export async function requestEmailChangeAction(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
   const { data: userAuth } = await getUserAuth();
+
   if (!userAuth || !userAuth.id) {
     return {
       success: false,
-      message: 'No tienes autorización para realizar esta acción.',
+      message: 'Debes estar logueado para solicitar un cambio de correo.',
     };
   }
 
-  // Si no se pasa userId en el FormData, se asume el propio usuario autenticado (/profile)
   const targetUserId = (formData.get('userId') as string) || userAuth.id;
 
-  // Validar permisos jerárquicos
+  // Validar permisos utilizando el rol devuelto por getUserAuth
   const authCheck = await validateEmailChangePermission(userAuth, targetUserId);
   if (!authCheck.allowed) {
     return { success: false, message: authCheck.message };
@@ -109,7 +109,7 @@ export async function requestEmailChangeAction(
   }
 
   try {
-    // Verificar si el correo ya está registrado por otro usuario
+    // Comprobar disponibilidad del correo en la base de datos
     const existingUser = await prisma.usuario.findUnique({
       where: { email: newEmail },
       select: { id: true },
@@ -131,12 +131,11 @@ export async function requestEmailChangeAction(
       };
     }
 
-    // Generar código numérico de 6 dígitos (OTP) y su hash para almacenamiento
     const rawCode = generateRandomCode();
     const tokenHash = hashToken(rawCode);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // Expiración en 15 minutos
 
-    // Inhabilitar tokens viejos del mismo email y registrar el nuevo
+    // Invalidar códigos anteriores y registrar el nuevo
     await prisma.$transaction([
       prisma.verificationCode.updateMany({
         where: { email: newEmail, used: false },
@@ -151,13 +150,13 @@ export async function requestEmailChangeAction(
       }),
     ]);
 
-    // Enviar el correo con el código de 6 dígitos
     await sendVerificationEmail(newEmail, rawCode);
 
     return {
       success: true,
       step: 'verify',
       pendingEmail: newEmail,
+      userId: targetUserId,
       message: `Hemos enviado un código de verificación a ${newEmail}`,
     };
   } catch (error) {
@@ -170,36 +169,38 @@ export async function requestEmailChangeAction(
 }
 
 /**
- * Paso 2: Verificar el código de 6 dígitos e implementar el cambio de correo en Prisma.
+ * PASO 2: Verificar el código e implementar el cambio de correo.
+ * Permite ejecución sin estar logueado (solo requiere poseer el código enviado).
  */
 export async function verifyEmailChangeAction(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
   const { data: userAuth } = await getUserAuth();
-  if (!userAuth || !userAuth.id) {
+
+  // El targetUserId proviene del formData, del prevState o de la sesión (si existe)
+  const targetUserId = (formData.get('userId') as string) || prevState?.userId || userAuth?.id;
+
+  if (!targetUserId) {
     return {
       success: false,
-      message: 'No tienes autorización para realizar esta acción.',
+      step: 'verify',
+      message: 'No se pudo determinar el usuario a actualizar.',
     };
   }
 
-  const targetUserId = (formData.get('userId') as string) || userAuth.id;
-
-  // Re-validar permisos antes de aplicar el cambio en la base de datos
-  const authCheck = await validateEmailChangePermission(userAuth, targetUserId);
-  if (!authCheck.allowed) {
-    return { success: false, message: authCheck.message };
-  }
-
   const rawCode = (formData.get('code') as string)?.trim() || '';
-  const pendingEmail = (formData.get('pendingEmail') as string)?.trim().toLowerCase() || '';
+  const pendingEmail =
+    (formData.get('pendingEmail') as string)?.trim().toLowerCase() ||
+    prevState?.pendingEmail ||
+    '';
 
   if (!rawCode || rawCode.length !== 6) {
     return {
       success: false,
       step: 'verify',
       pendingEmail,
+      userId: targetUserId,
       errors: { code: 'El código debe contener exactamente 6 dígitos.' },
     };
   }
@@ -208,6 +209,7 @@ export async function verifyEmailChangeAction(
     return {
       success: false,
       step: 'verify',
+      userId: targetUserId,
       message: 'No se especificó la dirección de correo a verificar.',
     };
   }
@@ -215,7 +217,7 @@ export async function verifyEmailChangeAction(
   try {
     const hashedToken = hashToken(rawCode);
 
-    // Buscar el registro filtrando por correo + hash del token activo y no expirado
+    // Validar código
     const verificationRecord = await prisma.verificationCode.findFirst({
       where: {
         email: pendingEmail,
@@ -235,11 +237,28 @@ export async function verifyEmailChangeAction(
         success: false,
         step: 'verify',
         pendingEmail,
+        userId: targetUserId,
         errors: { code: 'El código es incorrecto o ha expirado.' },
       };
     }
 
-    // Actualizar el email en la tabla Usuario y marcar el token como usado
+    // Verificar si el correo no fue registrado por otro usuario en medio del proceso
+    const emailCheck = await prisma.usuario.findUnique({
+      where: { email: pendingEmail },
+      select: { id: true },
+    });
+
+    if (emailCheck && emailCheck.id !== targetUserId) {
+      return {
+        success: false,
+        step: 'verify',
+        pendingEmail,
+        userId: targetUserId,
+        message: 'El correo electrónico ya fue ocupado por otro usuario.',
+      };
+    }
+
+    // Aplicar la actualización del email y marcar el token como usado
     await prisma.$transaction([
       prisma.usuario.update({
         where: { id: targetUserId },
@@ -251,7 +270,6 @@ export async function verifyEmailChangeAction(
       }),
     ]);
 
-    // Revalidar las rutas involucradas
     revalidatePath('/profile');
     revalidatePath(`/usuarios/editar/${targetUserId}`);
 
@@ -260,12 +278,12 @@ export async function verifyEmailChangeAction(
       message: '¡El correo electrónico se ha actualizado con éxito!',
     };
   } catch (error) {
-    // Control de restricción unique si el email fue ocupado justo antes de confirmar
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return {
         success: false,
         step: 'verify',
         pendingEmail,
+        userId: targetUserId,
         message: 'El correo electrónico ya fue registrado por otro usuario.',
       };
     }
@@ -275,6 +293,7 @@ export async function verifyEmailChangeAction(
       success: false,
       step: 'verify',
       pendingEmail,
+      userId: targetUserId,
       message: 'Ocurrió un error al intentar actualizar el correo electrónico.',
     };
   }

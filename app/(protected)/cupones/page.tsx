@@ -10,6 +10,7 @@ interface PageProps {
     sort?: string
     page?: string
     estado?: string
+    userId?:string
   }>
 }
 
@@ -20,9 +21,10 @@ export default async function CuponesPage({ searchParams }: PageProps) {
   const sort = params.sort || ""
   const page = Number(params.page) || 1
   const estado = params.estado || ""
+  const userId = params.userId || ""
 
   // Llamada al Server Action para obtener los cupones
-  const response = await getCupones({ search, sort, page, estado })
+  const response = await getCupones({ search, sort, page, estado, usuarioId: userId })
   const cupones = response.data || []
   const totalPages = response.totalPages || 1
 

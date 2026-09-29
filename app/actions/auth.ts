@@ -17,25 +17,7 @@ export async function verifyAndActivateUser(
   prevState: VerifyState,
   formData: FormData
 ): Promise<VerifyState> {
-  // 1. Validar autenticación
-  const { success, data: authUser } = await getUserAuth()
-
-  if (!success || !authUser) {
-    return {
-      success: false,
-      message: "Debes iniciar sesión para verificar tu cuenta.",
-    }
-  }
-
-  // 2. Si el usuario logueado YA está verificado, rechazar la acción
-  if (authUser.rol !== Rol.NO_VERIFICADO) {
-    return {
-      success: false,
-      message: "El usuario ya se encuentra verificado.",
-    }
-  }
-
-  // 3. Obtener y limpiar datos del formulario
+  // 1. Obtener y limpiar datos del formulario
   const code = (formData.get("code") as string)?.trim()
   const nombre = (formData.get("nombre") as string)?.trim()
   const password = formData.get("password") as string
@@ -67,10 +49,9 @@ export async function verifyAndActivateUser(
   try {
     const tokenHash = hashToken(code)
 
-    // 4. Buscar el código asegurando que corresponda AL EMAIL DEL USUARIO LOGUEADO
+    // 2. Buscar el código de verificación activo sin requerir sesión
     const verificationRecord = await prisma.verificationCode.findFirst({
       where: {
-        email: authUser.email, // 🔒 Crucial: Solo busca códigos asociados al usuario activo
         token: tokenHash,
         used: false,
         expiresAt: { gt: new Date() },
@@ -80,8 +61,27 @@ export async function verifyAndActivateUser(
     if (!verificationRecord) {
       return {
         success: false,
-        message:
-          "El código de verificación es inválido, ya fue utilizado o ha expirado.",
+        message: "El código de verificación es inválido, ya fue utilizado o ha expirado.",
+      }
+    }
+
+    // 3. Buscar al usuario asociado a ese código
+    const usuario = await prisma.usuario.findUnique({
+      where: { email: verificationRecord.email },
+    })
+
+    if (!usuario) {
+      return {
+        success: false,
+        message: "No se encontró ningún usuario asociado a este código.",
+      }
+    }
+
+    // 4. Validar que el usuario no esté verificado previamente
+    if (usuario.rol !== Rol.NO_VERIFICADO) {
+      return {
+        success: false,
+        message: "El usuario ya se encuentra verificado.",
       }
     }
 
@@ -91,11 +91,11 @@ export async function verifyAndActivateUser(
     // 6. Actualización atómica en base de datos
     await prisma.$transaction([
       prisma.usuario.update({
-        where: { id: authUser.id },
+        where: { id: usuario.id },
         data: {
           nombre,
           passwordHash,
-          rol: Rol.VENDEDOR, // O el rol por defecto tras verificar
+          rol: Rol.VENDEDOR,
         },
       }),
       prisma.verificationCode.update({

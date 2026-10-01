@@ -14,9 +14,9 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Iniciando la siembra de la base de datos (Seed)...');
 
-  // 1. Limpiar base de datos previa para evitar duplicados en el orden correcto de FK
+  // 1. Limpiar base de datos previa para evitar duplicados respetando el orden de FK
   await prisma.cupon.deleteMany();
-  await prisma.cliente.deleteMany(); // <--- Limpieza de clientes agregada
+  await prisma.cliente.deleteMany();
   await prisma.liquidacionDetalle.deleteMany();
   await prisma.pagoNegocio.deleteMany();
   await prisma.liquidacion.deleteMany();
@@ -55,7 +55,7 @@ async function main() {
 
   console.log('🏢 Negocios creados.');
 
-  // 3. Crear Usuarios (Admins y Vendedores)
+  // 3. Crear Usuarios (Admins, Gerente y Vendedores)
   const admin = await prisma.usuario.create({
     data: {
       nombre: 'Carlos Admin',
@@ -99,7 +99,7 @@ async function main() {
     },
   });
 
-  console.log('👤 Usuarios (Admin y Vendedores) creados.');
+  console.log('👤 Usuarios creados.');
 
   // 4. Crear Clientes
   const cliente1 = await prisma.cliente.create({
@@ -122,18 +122,65 @@ async function main() {
     data: {
       telefono: '541133332222',
       nombre: 'Martín Silva',
+      email: 'cliente3@gmail.com',
+    },
+  });
+
+  const cliente4 = await prisma.cliente.create({
+    data: {
+      telefono: '541177778888',
+      nombre: 'Lucía Benítez',
+      email: 'cliente4@gmail.com',
     },
   });
 
   console.log('👥 Clientes creados.');
 
-  // 5. Crear Cupones vinculados a los Clientes
-  const cuponPendiente = await prisma.cupon.create({
+  // 5. Crear Liquidación y Detalle para probar el estado LIQUIDADO
+  const liquidacion = await prisma.liquidacion.create({
     data: {
-      codigo: 'CUPON-1001',
+      periodo: '2026-09-Q1',
+      estado: EstadoLiquidacion.PAGADA,
+      fechaPago: new Date('2026-09-15'),
+      gestionadoPorId: admin.id,
+    },
+  });
+
+  const pagoNegocio1 = await prisma.pagoNegocio.create({
+    data: {
+      monto: 1000.0,
+      estado: EstadoLiquidacion.PAGADA,
+      metodoPago: MetodoPago.TRANSFERENCIA,
+      numeroTransferencia: 'TRX-9988776655',
+      fechaPago: new Date('2026-09-15'),
+      negocioId: negocio1.id,
+      liquidacionId: liquidacion.id,
+    },
+  });
+
+  const detalleVendedor1 = await prisma.liquidacionDetalle.create({
+    data: {
+      montoBruto: 5000.0,
+      comisionDueno: 1000.0,
+      montoNeto: 4000.0,
+      estado: EstadoLiquidacion.PAGADA,
+      metodoPago: MetodoPago.TRANSFERENCIA,
+      numeroTransferencia: 'TRX-1122334455',
+      fechaPago: new Date('2026-09-15'),
+      liquidacionId: liquidacion.id,
+      usuarioId: vendedor1.id,
+      pagoNegocioId: pagoNegocio1.id,
+    },
+  });
+
+  // 6. Crear Cupones en TODOS los Estados
+  // 🟢 6.1 ESTADO: PENDIENTE
+  await prisma.cupon.create({
+    data: {
+      codigo: 'CUPON-PENDIENTE',
       estado: EstadoCupon.PENDIENTE,
       tipoDescuento: TipoDescuento.PORCENTAJE,
-      valorDescuento: 15.0, // 15%
+      valorDescuento: 15.0,
       terminosCondiciones: 'Válido para cambio de aceite y filtro.',
       fechaExpiracion: new Date('2026-12-31'),
       walletPlataforma: PlataformaWallet.APPLE,
@@ -145,84 +192,55 @@ async function main() {
     },
   });
 
-  const cuponUsado1 = await prisma.cupon.create({
+  // 🔵 6.2 ESTADO: USADO
+  await prisma.cupon.create({
     data: {
-      codigo: 'CUPON-1002',
-      estado: EstadoCupon.USADO,
-      tipoDescuento: TipoDescuento.MONTO_FIJO,
-      valorDescuento: 5000.0, // $5000
-      terminosCondiciones: 'Descuento directo en alineación y balanceo.',
-      fechaExpiracion: new Date('2026-10-15'),
-      usuarioId: vendedor1.id,
-      clienteId: cliente2.id,
-      fechaUso: new Date('2026-09-10'),
-    },
-  });
-
-  const cuponUsado2 = await prisma.cupon.create({
-    data: {
-      codigo: 'CUPON-1003',
+      codigo: 'CUPON-USADO',
       estado: EstadoCupon.USADO,
       tipoDescuento: TipoDescuento.PORCENTAJE,
       valorDescuento: 20.0,
+      terminosCondiciones: 'Descuento aplicado en alineación y balanceo.',
+      fechaExpiracion: new Date('2026-11-30'),
+      fechaUso: new Date('2026-09-20'),
       walletPlataforma: PlataformaWallet.GOOGLE,
       walletSerial: 'google-serial-1003',
       agregadoAWallet: true,
       usuarioId: vendedor2.id,
       clienteId: cliente3.id,
-      fechaUso: new Date('2026-09-12'),
     },
   });
 
-  console.log('🎟️ Cupones creados.');
-
-  // 6. Crear Corrida de Liquidación
-  const liquidacion = await prisma.liquidacion.create({
+  // 🔴 6.3 ESTADO: VENCIDO
+  await prisma.cupon.create({
     data: {
-      periodo: '2026-09-Q1',
-      estado: EstadoLiquidacion.PAGADA,
-      fechaPago: new Date('2026-09-15'),
-      gestionadoPorId: admin.id,
-    },
-  });
-
-  // 7. Crear Pago al Negocio 1
-  const pagoNegocio1 = await prisma.pagoNegocio.create({
-    data: {
-      monto: 1000.0, // 20% de comisión retenida sobre $5000 bruto de vendedor1
-      estado: EstadoLiquidacion.PAGADA,
-      metodoPago: MetodoPago.TRANSFERENCIA,
-      numeroTransferencia: 'TRX-9988776655',
-      fechaPago: new Date('2026-09-15'),
-      negocioId: negocio1.id,
-      liquidacionId: liquidacion.id,
-    },
-  });
-
-  // 8. Crear Detalle de Liquidación del Vendedor 1 y vincular el cupón usado
-  const detalleVendedor1 = await prisma.liquidacionDetalle.create({
-    data: {
-      montoBruto: 5000.0,
-      comisionDueno: 1000.0, // 20%
-      montoNeto: 4000.0, // 5000 - 1000
-      estado: EstadoLiquidacion.PAGADA,
-      metodoPago: MetodoPago.TRANSFERENCIA,
-      numeroTransferencia: 'TRX-1122334455',
-      fechaPago: new Date('2026-09-15'),
-      liquidacionId: liquidacion.id,
+      codigo: 'CUPON-VENCIDO',
+      estado: EstadoCupon.VENCIDO,
+      tipoDescuento: TipoDescuento.MONTO_FIJO,
+      valorDescuento: 3000.0,
+      terminosCondiciones: 'Cupón caducado sin canjear.',
+      fechaExpiracion: new Date('2026-08-01'), // Fecha pasada
       usuarioId: vendedor1.id,
-      pagoNegocioId: pagoNegocio1.id,
+      clienteId: cliente4.id,
     },
   });
 
-  // Vincular el cupón usado 1 con su detalle de liquidación
-  await prisma.cupon.update({
-    where: { id: cuponUsado1.id },
-    data: { liquidacionDetalleId: detalleVendedor1.id },
+  // 🟣 6.4 ESTADO: LIQUIDADO (Vinculado a LiquidacionDetalle)
+  await prisma.cupon.create({
+    data: {
+      codigo: 'CUPON-LIQUIDADO',
+      estado: EstadoCupon.LIQUIDADO,
+      tipoDescuento: TipoDescuento.MONTO_FIJO,
+      valorDescuento: 5000.0,
+      terminosCondiciones: 'Descuento procesado y comisión abonada al negocio.',
+      fechaExpiracion: new Date('2026-10-15'),
+      fechaUso: new Date('2026-09-10'),
+      usuarioId: vendedor1.id,
+      clienteId: cliente2.id,
+      liquidacionDetalleId: detalleVendedor1.id, // <--- Vinculación clave para LIQUIDADO
+    },
   });
 
-  console.log('💰 Corrida de liquidación y pagos creados exitosamente.');
-
+  console.log('🎟️ Cupones creados en todos sus estados (PENDIENTE, USADO, VENCIDO, LIQUIDADO).');
   console.log('✅ Seed completado con éxito.');
 }
 

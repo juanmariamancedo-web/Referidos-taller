@@ -18,6 +18,7 @@ enum EstadoCupon {
   PENDIENTE
   USADO
   VENCIDO
+  LIQUIDADO
 }
 
 enum EstadoLiquidacion {

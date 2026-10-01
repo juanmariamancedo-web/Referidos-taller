@@ -3,6 +3,7 @@ import Paginacion from "@/app/components/Pagination"
 import { Sort } from "@/app/components/Sort"
 import { getCupones } from "@/app/actions/cupones"
 import Link from "next/link"
+import { getUserAuth } from "@/app/actions/auth"
 
 interface PageProps {
   searchParams: Promise<{
@@ -15,6 +16,7 @@ interface PageProps {
 }
 
 export default async function CuponesPage({ searchParams }: PageProps) {
+  const user = await getUserAuth()
   // En Next.js 15+ searchParams es una Promise
   const params = await searchParams
   const search = params.search || ""
@@ -35,7 +37,7 @@ export default async function CuponesPage({ searchParams }: PageProps) {
           Cupones
         </h1>
         <Link
-          href="/cupones/nuevo"
+          href={`/c/${user.data?.qrToken}`}
           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 font-semibold text-white transition hover:bg-blue-700"
         >
           <span className="text-xl leading-none">+</span>

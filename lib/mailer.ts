@@ -12,12 +12,19 @@ export const transporter = nodemailer.createTransport({
 
 export async function sendVerificationEmail(toEmail: string, code: string) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-  const resetLink = `${baseUrl}/verificar-email`
+
+  // Construcción limpia de los searchParams
+  const params = new URLSearchParams({
+    email: toEmail,
+    code: code,
+  })
+
+  const resetLink = `${baseUrl}/verificar-email?${params.toString()}`
 
   const mailOptions = {
     from: `"Soporte" <${process.env.SMTP_USER}>`,
-    to: toEmail,
     subject: "Código de verificación para cambio de correo electrónico",
+    to: toEmail,
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #1e293b;">Verificación de correo electrónico</h2>

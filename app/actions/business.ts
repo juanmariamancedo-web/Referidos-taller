@@ -3,11 +3,6 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma, Rol } from '@prisma/client'
 
-export interface UpdateBusinessState {
-  error?: string
-  success?: boolean
-}
-
 /**
  * Obtiene un negocio por su ID junto con el email del primer usuario/encargado asignado.
  */
@@ -51,6 +46,12 @@ export async function getBusinessById(id: string) {
 /**
  * Actualiza un negocio existente (Rango Admin sin restricciones).
  */
+
+export interface UpdateBusinessState {
+  error?: string
+  success?: boolean
+}
+
 export async function updateBusiness(
   businessId: string,
   prevState: UpdateBusinessState,
@@ -59,9 +60,9 @@ export async function updateBusiness(
   // 1. Verificación de Autenticación y Autorización
   const { data: user } = await getUserAuth()
 
-  if (!user || user.rol !== 'ADMIN') {
+  if (!user || user.rol !== Rol.ADMIN) {
     return {
-      error: 'Acceso denegado.',
+      error: 'Acceso denegado. Solo administradores pueden modificar negocios.',
     }
   }
 
@@ -97,6 +98,7 @@ export async function updateBusiness(
     if (!targetUser) {
       const userFormData = new FormData()
       userFormData.append('email', userEmail)
+      userFormData.append('negocioId', businessId)
 
       const preRegisterResult = await preRegisterUser({}, userFormData)
 
@@ -115,32 +117,69 @@ export async function updateBusiness(
           error: 'No se pudo recuperar el usuario pre-registrado.',
         }
       }
+    } else {
+      // 🔒 REGLA 1: Si el usuario ya existe y está asignado a OTRO negocio, denegar la asignación
+      if (targetUser.negocioId && targetUser.negocioId !== businessId) {
+        return {
+          error: `El usuario con email ${userEmail} ya se encuentra asignado como ${targetUser.rol} en otro negocio. No es posible reasignarlo.`,
+        }
+      }
+
+      // 🔒 REGLA 2: Un usuario con rol ADMIN global no puede ser asignado como GERENTE de un negocio específico
+      if (targetUser.rol === Rol.ADMIN) {
+        return {
+          error: 'Un usuario con rol Administrador (ADMIN) no puede ser designado como Gerente de un negocio específico.',
+        }
+      }
     }
 
-    // 5. Actualizar el Negocio y conectar/vincular el nuevo usuario encargado
-    await prisma.negocio.update({
-      where: { id: businessId },
-      data: {
-        nombre,
-        direccion,
-        porcentajeFee,
-        bancoOProveedor,
-        alias,
-        cbuCvu,
-        activo,
-        usuarios: {
-          connect: { id: targetUser.id },
+    // 5. Transacción Atómica: Garantizar unicidad de GERENTE por negocio y actualizar datos
+    await prisma.$transaction(async (tx) => {
+      // a) Buscar si el negocio ya tenía un GERENTE asignado previamente
+      const gerenteActual = await tx.usuario.findFirst({
+        where: {
+          negocioId: businessId,
+          rol: Rol.GERENTE,
         },
-      },
-    })
-
-    // 6. Si el usuario reasignado/asociado no tenía este negocioId, lo actualizamos
-    if (targetUser.negocioId !== businessId) {
-      await prisma.usuario.update({
-        where: { id: targetUser.id },
-        data: { negocioId: businessId },
       })
-    }
+
+      // b) Si existe un gerente anterior y es diferente al nuevo encargado, degradar su rol a VENDEDOR
+      if (gerenteActual && gerenteActual.id !== targetUser.id) {
+        await tx.usuario.update({
+          where: { id: gerenteActual.id },
+          data: {
+            rol: Rol.VENDEDOR,
+          },
+        })
+      }
+
+      // c) Actualizar los datos del Negocio y vincular al nuevo encargado
+      await tx.negocio.update({
+        where: { id: businessId },
+        data: {
+          nombre,
+          direccion,
+          porcentajeFee,
+          bancoOProveedor,
+          alias,
+          cbuCvu,
+          activo,
+          usuarios: {
+            connect: { id: targetUser.id },
+          },
+        },
+      })
+
+      // d) Actualizar el usuario objetivo: asignar negocioId y asegurar su rol GERENTE
+      await tx.usuario.update({
+        where: { id: targetUser.id },
+        data: {
+          negocioId: businessId,
+          // Si el usuario era VENDEDOR o NO_VERIFICADO, se promueve a GERENTE
+          rol: Rol.GERENTE,
+        },
+      })
+    })
   } catch (error: any) {
     console.error('Error al ejecutar updateBusiness:', error)
     return {
@@ -150,7 +189,7 @@ export async function updateBusiness(
     }
   }
 
-  // 7. Revalidación de Caché y Redirección
+  // 6. Revalidación de Caché y Redirección
   revalidatePath('/negocios')
   revalidatePath(`/negocios/${businessId}`)
   redirect('/negocios')

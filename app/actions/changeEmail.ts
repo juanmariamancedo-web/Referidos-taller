@@ -135,7 +135,7 @@ export async function requestEmailChangeAction(
     const tokenHash = hashToken(rawCode);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // Expiración en 15 minutos
 
-    // Invalidar códigos anteriores y registrar el nuevo
+    // Invalidar códigos anteriores y registrar el nuevo asignando el userId
     await prisma.$transaction([
       prisma.verificationCode.updateMany({
         where: { email: newEmail, used: false },
@@ -146,6 +146,7 @@ export async function requestEmailChangeAction(
           email: newEmail,
           token: tokenHash,
           expiresAt,
+          userId: targetUserId, // <--- Guardamos el ID del usuario solicitante
         },
       }),
     ]);
@@ -170,28 +171,16 @@ export async function requestEmailChangeAction(
 
 /**
  * PASO 2: Verificar el código e implementar el cambio de correo.
- * Permite ejecución sin estar logueado (solo requiere poseer el código enviado).
+ * Solo requiere que el formulario envíe el email y el código.
  */
 export async function verifyEmailChangeAction(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const { data: userAuth } = await getUserAuth();
-
-  // El targetUserId proviene del formData, del prevState o de la sesión (si existe)
-  const targetUserId = (formData.get('userId') as string) || prevState?.userId || userAuth?.id;
-
-  if (!targetUserId) {
-    return {
-      success: false,
-      step: 'verify',
-      message: 'No se pudo determinar el usuario a actualizar.',
-    };
-  }
-
   const rawCode = (formData.get('code') as string)?.trim() || '';
   const pendingEmail =
     (formData.get('pendingEmail') as string)?.trim().toLowerCase() ||
+    (formData.get('email') as string)?.trim().toLowerCase() ||
     prevState?.pendingEmail ||
     '';
 
@@ -200,7 +189,6 @@ export async function verifyEmailChangeAction(
       success: false,
       step: 'verify',
       pendingEmail,
-      userId: targetUserId,
       errors: { code: 'El código debe contener exactamente 6 dígitos.' },
     };
   }
@@ -209,7 +197,6 @@ export async function verifyEmailChangeAction(
     return {
       success: false,
       step: 'verify',
-      userId: targetUserId,
       message: 'No se especificó la dirección de correo a verificar.',
     };
   }
@@ -217,7 +204,7 @@ export async function verifyEmailChangeAction(
   try {
     const hashedToken = hashToken(rawCode);
 
-    // Validar código
+    // 1. Validar código en la base de datos
     const verificationRecord = await prisma.verificationCode.findFirst({
       where: {
         email: pendingEmail,
@@ -237,12 +224,28 @@ export async function verifyEmailChangeAction(
         success: false,
         step: 'verify',
         pendingEmail,
-        userId: targetUserId,
         errors: { code: 'El código es incorrecto o ha expirado.' },
       };
     }
 
-    // Verificar si el correo no fue registrado por otro usuario en medio del proceso
+    // 2. Resolver el targetUserId desde la DB, prevState o sesión como fallback
+    let targetUserId = verificationRecord.userId || (formData.get('userId') as string) || prevState?.userId || '';
+
+    if (!targetUserId) {
+      const { data: userAuth } = await getUserAuth();
+      targetUserId = userAuth?.id || '';
+    }
+
+    if (!targetUserId) {
+      return {
+        success: false,
+        step: 'verify',
+        pendingEmail,
+        message: 'No se pudo determinar el usuario a actualizar.',
+      };
+    }
+
+    // 3. Verificar si el correo no fue registrado por otro usuario en medio del proceso
     const emailCheck = await prisma.usuario.findUnique({
       where: { email: pendingEmail },
       select: { id: true },
@@ -258,7 +261,7 @@ export async function verifyEmailChangeAction(
       };
     }
 
-    // Aplicar la actualización del email y marcar el token como usado
+    // 4. Aplicar la actualización del email y consumir el código
     await prisma.$transaction([
       prisma.usuario.update({
         where: { id: targetUserId },
@@ -283,7 +286,6 @@ export async function verifyEmailChangeAction(
         success: false,
         step: 'verify',
         pendingEmail,
-        userId: targetUserId,
         message: 'El correo electrónico ya fue registrado por otro usuario.',
       };
     }
@@ -293,7 +295,6 @@ export async function verifyEmailChangeAction(
       success: false,
       step: 'verify',
       pendingEmail,
-      userId: targetUserId,
       message: 'Ocurrió un error al intentar actualizar el correo electrónico.',
     };
   }

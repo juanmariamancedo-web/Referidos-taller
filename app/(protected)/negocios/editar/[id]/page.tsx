@@ -1,56 +1,50 @@
-import { prisma } from "@/lib/prisma"
-import { notFound } from "next/navigation"
-import FormularioCupon from "./FormularioCupon"
+"use server"
 
-interface PageProps {
-  params: Promise<{ qrToken: string }>
+import { notFound, redirect } from "next/navigation"
+import { getUserAuth } from "@/app/actions/auth"
+import { getBusinessById } from "@/app/actions/business"
+import EditBusinessForm from "./EditBusinessForm"
+
+interface EditBusinessPageProps {
+  params: Promise<{
+    id: string
+  }>
 }
 
-export default async function GenerarCuponPage({ params }: PageProps) {
-  const { qrToken } = await params
+export default async function EditBusinessPage({ params }: EditBusinessPageProps) {
+  // 1. Obtención y verificación de permisos del usuario (Rango Admin)
+  const { data: user } = await getUserAuth()
 
-  const vendedor = await prisma.usuario.findUnique({
-    where: { qrToken },
-    select: {
-      nombre: true,
-      apellido: true,
-      negocio: {
-        select: {
-          nombre: true,
-          direccion: true,
-        },
-      },
-    },
-  })
+  if (!user || user.rol !== "ADMIN") {
+    redirect("/negocios")
+  }
 
-  if (!vendedor) {
+  // 2. Extraer el ID desde los parámetros de la URL
+  const { id } = await params
+
+  // 3. Obtención de datos del negocio en el servidor
+  const { success, data: business } = await getBusinessById(id)
+
+  if (!success || !business) {
     notFound()
   }
 
-  const nombreNegocio = vendedor.negocio?.nombre || "Comercio Adherido"
-  const nombreVendedor = [vendedor.nombre, vendedor.apellido].filter(Boolean).join(" ")
-
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-4">
-        {/* Header con la identidad del negocio */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-black/20 text-center">
-          <span className="text-xs font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-            Beneficio Exclusivo
-          </span>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-            {nombreNegocio}
+    <div className="mx-auto max-w-4xl p-6 w-full">
+      {/* Encabezado */}
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+            Editar Negocio
           </h1>
-          {nombreVendedor && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Recomendado por: <span className="font-semibold">{nombreVendedor}</span>
-            </p>
-          )}
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Modifica la información y configuración general del negocio.
+          </p>
         </div>
-
-        {/* Formulario alineado al Design System */}
-        <FormularioCupon qrToken={qrToken} />
       </div>
-    </main>
-  );
+
+      {/* Formulario Cliente con los datos precargados */}
+      <EditBusinessForm business={business} />
+    </div>
+  )
 }

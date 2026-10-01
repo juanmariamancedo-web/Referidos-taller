@@ -42,27 +42,41 @@ enum PlataformaWallet {
 }
 
 model Negocio {
-  id        String  @id @default(cuid())
-  nombre    String
+  id      String @id @default(cuid())
+  nombre  String
+  cuit    String? @unique
+  rubro   String?
+  telefono String?
   direccion String?
-  activo    Boolean @default(true)
 
-  // Porcentaje de comisión que retiene el negocio sobre la comisión total (ej. 20.00 para un 20%)
-  porcentajeFee Decimal @default(0.00) @db.Decimal(5, 2)
+  // --- Reglas Comerciales & Promoción Estandarizada ---
+  /// Tipo de descuento por defecto que ofrecen los cupones de este negocio (PORCENTAJE o MONTO_FIJO)
+  tipoDescuentoDefault  TipoDescuento @default(PORCENTAJE)
 
-  // Datos de cobro del negocio/comercio
+  /// Valor del descuento por defecto (ej. 10.00 para 10% o 5000.00 para $5.000)
+  valorDescuentoDefault Decimal       @default(10.00) @db.Decimal(10, 2)
+
+  /// Comisión/Recompensa base generada para el vendedor por cada cupón exitoso
+  montoComisionDefault  Decimal       @default(3000.00) @db.Decimal(10, 2)
+
+  /// Porcentaje de retención/fee que el dueño del negocio se queda sobre las comisiones de sus vendedores (ej. 20.00)
+  porcentajeFee         Decimal       @default(0.00) @db.Decimal(5, 2)
+
+  // --- Datos Bancarios / Cobro (para recibir las liquidaciones) ---
   alias           String?
   cbuCvu          String?
-  bancoOProveedor String? // ej. "Mercado Pago", "Banco Galicia"
+  bancoOProveedor String? // Ej: "Mercado Pago", "Banco Galicia", "Brubank"
 
-  usuarios     Usuario[]
-  pagosNegocio PagoNegocio[]
+  // Estado del negocio
+  activo Boolean @default(true)
+
+  // Relaciones
+  usuarios     Usuario[]     // Vendedores / Empleados asociados a este negocio
+  pagosNegocio PagoNegocio[] // Historial de transferencias/pagos recibidos por las liquidaciones
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([createdAt])
-  @@index([nombre])
   @@index([activo])
 }
 
@@ -90,6 +104,7 @@ model Usuario {
   cupones                  Cupon[]
   liquidacionDetalles      LiquidacionDetalle[] @relation("VendedorDetalle")
   liquidacionesGestionadas Liquidacion[]        @relation("AdminGestion")
+  verificationCodes VerificationCode[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -120,13 +135,26 @@ model Cupon {
   codigo String      @unique // codificado en el QR / mostrado al cliente
   estado EstadoCupon @default(PENDIENTE)
 
-  // Términos del descuento
+  // Términos y reglas del descuento
   tipoDescuento       TipoDescuento
-  valorDescuento      Decimal       @db.Decimal(10, 2)
+  valorDescuento      Decimal       @db.Decimal(10, 2) // Porcentaje (%) o Monto Fijo ($) definido originalmente
   terminosCondiciones String?
   fechaExpiracion     DateTime?
 
-  // Relación con el Cliente (Reemplaza a clienteTelefono y clienteEmail)
+  // --- Snapshot Financiero del Canje (se completan al pasar a USADO) ---
+  /// Importe total del trabajo/servicio del taller sin aplicar descuento
+  montoOriginal       Decimal?      @db.Decimal(10, 2)
+
+  /// Monto efectivo descontado al cliente final
+  montoDescuento      Decimal?      @db.Decimal(10, 2)
+
+  /// Importe final cobra/pagado por el cliente (montoOriginal - montoDescuento)
+  montoFinalCliente   Decimal?      @db.Decimal(10, 2)
+
+  /// Ganancia / Comisión que le corresponde al vendedor (referido) por este cupón
+  montoComisionVendedor Decimal?    @db.Decimal(10, 2)
+
+  // Relación con el Cliente
   clienteId String
   cliente   Cliente @relation(fields: [clienteId], references: [id])
 
@@ -140,6 +168,7 @@ model Cupon {
   usuarioId String
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
+  // Vinculación con la liquidación
   liquidacionDetalleId String?
   liquidacionDetalle   LiquidacionDetalle? @relation(fields: [liquidacionDetalleId], references: [id])
 
@@ -257,11 +286,15 @@ model PagoNegocio {
 model VerificationCode {
   id        String   @id @default(cuid())
   email     String
-  token     String   @unique // Guardará el HASH SHA-256 del código (así garantizamos unicidad)
+  token     String   @unique
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  // Índices para acelerar las búsquedas por email o el estado del token
+  // Opcional para no romper registro o forgot password
+  userId    String?
+  user      Usuario? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([email])
+  @@index([userId])
 }

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getUserAuth } from '@/app/actions/auth'
 import { generateRandomCode, hashToken } from '@/lib/crypto'
 import { revalidatePath } from 'next/cache'
-import { sendVerificationEmail } from '@/lib/mailer'
+import { sendUserVerificationEmail, sendVerificationEmail } from '@/lib/mailer'
 import { Prisma, Rol } from '@prisma/client'
 
 export interface UpdateUserInput {
@@ -473,7 +473,7 @@ export async function preRegisterUser(
     })
 
     if (rawCodeToSend) {
-      await sendVerificationEmail(email, rawCodeToSend)
+      await sendUserVerificationEmail(email, rawCodeToSend) 
     }
   } catch (error: any) {
     console.error('Error en preRegisterUser:', error)

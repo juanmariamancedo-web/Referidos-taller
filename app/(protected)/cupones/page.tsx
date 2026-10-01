@@ -91,13 +91,17 @@ export default async function CuponesPage({ searchParams }: PageProps) {
                         : `$${Number(cupon.valorDescuento).toLocaleString()}`}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        cupon.estado === "USADO"
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : cupon.estado === "PENDIENTE"
-                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                      }`}>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          cupon.estado === "USADO"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : cupon.estado === "LIQUIDADO"
+                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                            : cupon.estado === "PENDIENTE"
+                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        }`}
+                      >
                         {cupon.estado}
                       </span>
                     </td>

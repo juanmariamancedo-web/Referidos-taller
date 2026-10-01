@@ -485,3 +485,108 @@ export async function preRegisterUser(
   revalidatePath('/usuarios')
   return { success: true }
 }
+
+export interface ResendCodeState {
+  error?: string
+  success?: boolean
+  message?: string
+}
+
+export interface ResendUserVerificationState {
+  error?: string
+  success?: boolean
+  message?: string
+}
+
+
+/**
+ * Reenvía un nuevo email de verificación (OTP) público para usuarios en estado NO_VERIFICADO.
+ * No requiere sesión iniciada.
+ */
+export async function resendUserVerificationCode(
+  prevState: ResendUserVerificationState,
+  formData: FormData
+): Promise<ResendUserVerificationState> {
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: 'Ingresa un correo electrónico válido.' }
+  }
+
+  let rawCodeToSend: string | null = null
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Verificar que el usuario exista
+      const existingUser = await tx.usuario.findUnique({
+        where: { email },
+      })
+
+      if (!existingUser) {
+        // Tip de seguridad: podrías retornar genérico o indicar que el mail no existe
+        throw new Error('No se encontró ningún usuario pendiente de verificación con este correo.')
+      }
+
+      // 2. Verificar que el usuario aún no esté verificado
+      if (existingUser.rol !== Rol.NO_VERIFICADO) {
+        throw new Error('Esta cuenta ya ha sido activada y se encuentra lista para iniciar sesión.')
+      }
+
+      // 3. (Opcional) Rate limiting: evitar solicitudes masivas si el último código se creó hace menos de 1 minuto
+      const lastCode = await tx.verificationCode.findFirst({
+        where: { email },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      if (lastCode) {
+        const cooldownMinutes = 1
+        const timeElapsed = (Date.now() - new Date(lastCode.createdAt).getTime()) / 1000 / 60
+        if (timeElapsed < cooldownMinutes) {
+          throw new Error('Por favor espera un minuto antes de solicitar un nuevo código.')
+        }
+      }
+
+      // 4. Invalidar códigos de verificación previos que no hayan sido usados
+      await tx.verificationCode.updateMany({
+        where: {
+          email,
+          used: false,
+        },
+        data: {
+          used: true,
+        },
+      })
+
+      // 5. Generar nuevo código OTP y establecer expiración a 24 hs
+      const rawCode = generateRandomCode()
+      const tokenHash = hashToken(rawCode)
+      rawCodeToSend = rawCode
+
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+
+      await tx.verificationCode.create({
+        data: {
+          email: existingUser.email,
+          token: tokenHash,
+          expiresAt,
+          used: false,
+        },
+      })
+    })
+
+    // 6. Enviar nuevamente el correo de verificación con el nuevo código
+    if (rawCodeToSend) {
+      await sendUserVerificationEmail(email, rawCodeToSend)
+    }
+  } catch (error: any) {
+    console.error('Error en resendUserVerificationCode:', error)
+    return {
+      error: error.message || 'Ocurrió un error inesperado al reenviar el correo de verificación.',
+    }
+  }
+
+  return {
+    success: true,
+    message: 'Se ha reenviado el código de verificación a tu correo.',
+  }
+}

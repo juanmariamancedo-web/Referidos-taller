@@ -118,7 +118,7 @@ interface GetCuponesParams {
   page?: number
   pageSize?: number
   estado?: string
-  usuarioId?: string // Permite filtrar opcionalmente por un usuario específico
+  usuarioId?: string
 }
 
 export interface GetCuponesResponse {
@@ -148,6 +148,7 @@ export interface ValidarCuponResponse {
 
 /**
  * Obtiene un listado paginado de cupones filtrado según el ROL del usuario autenticado.
+ * Sincroniza previamente los estados a LIQUIDADO y VENCIDO.
  */
 export async function getCupones({
   search = "",
@@ -157,7 +158,6 @@ export async function getCupones({
   estado = "",
   usuarioId,
 }: GetCuponesParams): Promise<GetCuponesResponse> {
-  // 🔒 1. Verificación de Autenticación
   const { data: userAuth } = await getUserAuth()
   if (!userAuth || !userAuth.id) {
     return {
@@ -171,22 +171,49 @@ export async function getCupones({
   }
 
   try {
+    const ahora = new Date()
+
+    // 🔄 Sincronización previa de estados en BD
+    await prisma.$transaction([
+      prisma.cupon.updateMany({
+        where: {
+          liquidacionDetalle: {
+            isNot: null,
+          },
+          estado: {
+            not: EstadoCupon.LIQUIDADO,
+          },
+        },
+        data: {
+          estado: EstadoCupon.LIQUIDADO,
+        },
+      }),
+
+      prisma.cupon.updateMany({
+        where: {
+          estado: EstadoCupon.PENDIENTE,
+          fechaExpiracion: {
+            lt: ahora,
+          },
+        },
+        data: {
+          estado: EstadoCupon.VENCIDO,
+        },
+      }),
+    ])
+
     const currentPage = Math.max(1, Number(page))
     const limit = Math.max(1, Number(pageSize))
     const skip = (currentPage - 1) * limit
 
     const where: Prisma.CuponWhereInput = {}
 
-    // 🔒 2. Control de Permisos por Rol en la Cláusula WHERE
     if (userAuth.rol === Rol.ADMIN) {
-      // ADMIN: Puede ver todos los cupones. Si se pasa `usuarioId`, se aplica como filtro opcional.
       if (usuarioId) {
         where.usuarioId = usuarioId
       }
     } else if (userAuth.rol === Rol.GERENTE) {
-      // GERENTE: Solo ve sus propios cupones o los de vendedores pertenecientes a su mismo negocio
       if (usuarioId) {
-        // Verificar que el usuario pedido pertenezca a su mismo negocio
         where.AND = [
           { usuarioId },
           { usuario: { negocioId: userAuth.negocioId } },
@@ -197,16 +224,13 @@ export async function getCupones({
         }
       }
     } else {
-      // VENDEDOR: Solo puede consultar sus propios cupones obligatoriamente
       where.usuarioId = userAuth.id
     }
 
-    // Filtro opcional por Estado del cupón
     if (estado && Object.values(EstadoCupon).includes(estado as EstadoCupon)) {
       where.estado = estado as EstadoCupon
     }
 
-    // Buscador general
     if (search.trim()) {
       const query = search.trim()
       where.OR = [
@@ -279,10 +303,9 @@ export async function getCupones({
 }
 
 /**
- * Obtiene la información detallada de un cupón por su ID, validando los permisos del usuario logueado.
+ * Obtiene la información detallada de un cupón por su ID, actualizando su estado si corresponde.
  */
 export async function getCuponById(id: string): Promise<GetCuponByIdResponse> {
-  // 🔒 1. Verificación de Autenticación
   const { data: userAuth } = await getUserAuth()
   if (!userAuth || !userAuth.id) {
     return { success: false, message: "No autenticado." }
@@ -293,7 +316,7 @@ export async function getCuponById(id: string): Promise<GetCuponByIdResponse> {
       return { success: false, message: "ID de cupón no proporcionado" }
     }
 
-    const cupon = await prisma.cupon.findUnique({
+    let cupon = await prisma.cupon.findUnique({
       where: { id },
       include: cuponDetallePayload.include,
     })
@@ -302,7 +325,28 @@ export async function getCuponById(id: string): Promise<GetCuponByIdResponse> {
       return { success: false, message: "El cupón solicitado no existe" }
     }
 
-    // 🔒 2. Validación de Jerarquía y Permisos
+    const ahora = new Date()
+    const tieneLiquidacion = Boolean(cupon.liquidacionDetalle)
+    const estaVencidoPorFecha =
+      cupon.estado === EstadoCupon.PENDIENTE &&
+      cupon.fechaExpiracion &&
+      new Date(cupon.fechaExpiracion) < ahora
+
+    if (
+      (tieneLiquidacion && cupon.estado !== EstadoCupon.LIQUIDADO) ||
+      estaVencidoPorFecha
+    ) {
+      const nuevoEstado = tieneLiquidacion
+        ? EstadoCupon.LIQUIDADO
+        : EstadoCupon.VENCIDO
+
+      cupon = await prisma.cupon.update({
+        where: { id },
+        data: { estado: nuevoEstado },
+        include: cuponDetallePayload.include,
+      })
+    }
+
     if (userAuth.rol === Rol.VENDEDOR && cupon.usuarioId !== userAuth.id) {
       return {
         success: false,
@@ -344,7 +388,7 @@ export async function getCuponByCodigo(codigo: string) {
 
     const codigoLimpio = codigo.trim().toUpperCase()
 
-    const cupon = await prisma.cupon.findUnique({
+    let cupon = await prisma.cupon.findUnique({
       where: { codigo: codigoLimpio },
       include: {
         cliente: true,
@@ -353,11 +397,42 @@ export async function getCuponByCodigo(codigo: string) {
             negocio: true,
           },
         },
+        liquidacionDetalle: true,
       },
     })
 
     if (!cupon) {
       return { success: false, message: "Cupón no encontrado." }
+    }
+
+    const ahora = new Date()
+    const tieneLiquidacion = Boolean(cupon.liquidacionDetalle)
+    const estaVencidoPorFecha =
+      cupon.estado === EstadoCupon.PENDIENTE &&
+      cupon.fechaExpiracion &&
+      new Date(cupon.fechaExpiracion) < ahora
+
+    if (
+      (tieneLiquidacion && cupon.estado !== EstadoCupon.LIQUIDADO) ||
+      estaVencidoPorFecha
+    ) {
+      const nuevoEstado = tieneLiquidacion
+        ? EstadoCupon.LIQUIDADO
+        : EstadoCupon.VENCIDO
+
+      cupon = await prisma.cupon.update({
+        where: { id: cupon.id },
+        data: { estado: nuevoEstado },
+        include: {
+          cliente: true,
+          usuario: {
+            include: {
+              negocio: true,
+            },
+          },
+          liquidacionDetalle: true,
+        },
+      })
     }
 
     return {
@@ -374,14 +449,9 @@ export async function getCuponByCodigo(codigo: string) {
  * Valida y canjea un cupón (Cambia estado a USADO).
  * REQUIERE OBLIGATORIAMENTE ROL DE ADMINISTRADOR (ADMIN).
  */
-/**
- * Valida y canjea un cupón (Cambia estado a USADO).
- * REQUIERE OBLIGATORIAMENTE ROL DE ADMINISTRADOR (ADMIN).
- */
 export async function validarYCanjearCupon(
   codigo: string
 ): Promise<ValidarCuponResponse> {
-  // 🔒 1. Verificación de Autenticación
   const { data: userAuth } = await getUserAuth()
 
   if (!userAuth || !userAuth.id) {
@@ -391,7 +461,6 @@ export async function validarYCanjearCupon(
     }
   }
 
-  // 🔒 2. Validación de Rol estricta: SOLO ADMINISTRADORES
   if (userAuth.rol !== Rol.ADMIN) {
     return {
       success: false,
@@ -418,6 +487,7 @@ export async function validarYCanjearCupon(
             negocio: true,
           },
         },
+        liquidacionDetalle: true,
       },
     })
 
@@ -428,18 +498,34 @@ export async function validarYCanjearCupon(
       }
     }
 
-    // 🕒 3. Comprobar vencimiento antes de cualquier verificación de estado
+    // 🕒 3. Comprobar si ya fue liquidado (Usando comprobación de objeto 1-a-1)
+    if (cupon.estado === EstadoCupon.LIQUIDADO || Boolean(cupon.liquidacionDetalle)) {
+      if (cupon.estado !== EstadoCupon.LIQUIDADO) {
+        await prisma.cupon.update({
+          where: { id: cupon.id },
+          data: { estado: EstadoCupon.LIQUIDADO },
+        })
+        cupon.estado = EstadoCupon.LIQUIDADO
+      }
+
+      return {
+        success: false,
+        message: "Este cupón ya fue liquidado.",
+        data: formatCupon(cupon),
+      }
+    }
+
+    // 🕒 4. Comprobar vencimiento
     const ahora = new Date()
     const estaVencidoPorFecha = cupon.fechaExpiracion && new Date(cupon.fechaExpiracion) < ahora
 
-    if (cupon.estado === "VENCIDO" || estaVencidoPorFecha) {
-      // Si el cupón estaba pendiente pero su fecha expiró, actualizamos el estado en BD
-      if (cupon.estado !== "VENCIDO") {
+    if (cupon.estado === EstadoCupon.VENCIDO || estaVencidoPorFecha) {
+      if (cupon.estado !== EstadoCupon.VENCIDO) {
         await prisma.cupon.update({
           where: { id: cupon.id },
-          data: { estado: "VENCIDO" },
+          data: { estado: EstadoCupon.VENCIDO },
         })
-        cupon.estado = "VENCIDO"
+        cupon.estado = EstadoCupon.VENCIDO
       }
 
       return {
@@ -449,8 +535,8 @@ export async function validarYCanjearCupon(
       }
     }
 
-    // 🔒 4. Comprobar si ya fue utilizado
-    if (cupon.estado === "USADO") {
+    // 🔒 5. Comprobar si ya fue utilizado
+    if (cupon.estado === EstadoCupon.USADO) {
       return {
         success: false,
         message: "Este cupón ya fue canjeado anteriormente.",
@@ -462,7 +548,7 @@ export async function validarYCanjearCupon(
     const cuponCanjeado = await prisma.cupon.update({
       where: { id: cupon.id },
       data: {
-        estado: "USADO",
+        estado: EstadoCupon.USADO,
         fechaUso: ahora,
       },
       include: {

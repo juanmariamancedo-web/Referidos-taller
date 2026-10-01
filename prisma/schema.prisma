@@ -120,13 +120,26 @@ model Cupon {
   codigo String      @unique // codificado en el QR / mostrado al cliente
   estado EstadoCupon @default(PENDIENTE)
 
-  // Términos del descuento
+  // Términos y reglas del descuento
   tipoDescuento       TipoDescuento
-  valorDescuento      Decimal       @db.Decimal(10, 2)
+  valorDescuento      Decimal       @db.Decimal(10, 2) // Porcentaje (%) o Monto Fijo ($) definido originalmente
   terminosCondiciones String?
   fechaExpiracion     DateTime?
 
-  // Relación con el Cliente (Reemplaza a clienteTelefono y clienteEmail)
+  // --- Snapshot Financiero del Canje (se completan al pasar a USADO) ---
+  /// Importe total del trabajo/servicio del taller sin aplicar descuento
+  montoOriginal       Decimal?      @db.Decimal(10, 2)
+
+  /// Monto efectivo descontado al cliente final
+  montoDescuento      Decimal?      @db.Decimal(10, 2)
+
+  /// Importe final cobra/pagado por el cliente (montoOriginal - montoDescuento)
+  montoFinalCliente   Decimal?      @db.Decimal(10, 2)
+
+  /// Ganancia / Comisión que le corresponde al vendedor (referido) por este cupón
+  montoComisionVendedor Decimal?    @db.Decimal(10, 2)
+
+  // Relación con el Cliente
   clienteId String
   cliente   Cliente @relation(fields: [clienteId], references: [id])
 
@@ -140,6 +153,7 @@ model Cupon {
   usuarioId String
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
+  // Vinculación con la liquidación
   liquidacionDetalleId String?
   liquidacionDetalle   LiquidacionDetalle? @relation(fields: [liquidacionDetalleId], references: [id])
 

@@ -36,6 +36,9 @@ export default function ProfileForm({ userData }: ProfileFormProps) {
     bancoOProveedor: userData?.bancoOProveedor || '',
   })
 
+  const inputStyles =
+    "w-full rounded-md bg-black/5 px-3 py-2 text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-gray-700"
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -64,255 +67,238 @@ export default function ProfileForm({ userData }: ProfileFormProps) {
     setFormData((prev) => ({ ...prev, [name]: newValue }))
   }
 
-  const handleCancel = () => {
-    window.history.back()
-  }
-
   return (
-    <div className="mx-auto max-w-2xl p-6 w-full">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">
-          Mi Perfil
-        </h2>
-
-        {/* Alerta de mensaje global */}
-        {state?.message && (
-          <div
-            className={`mb-6 p-4 text-xs rounded-lg border ${
-              state.success
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300'
-                : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300'
-            }`}
-          >
-            {state.message}
-          </div>
-        )}
-
-        <form action={formAction} className="space-y-6">
-          {/* Sección 1: Datos Personales */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
-              Datos Personales
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="nombre"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Nombre
-                </label>
-                <input
-                  id="nombre"
-                  name="nombre"
-                  type="text"
-                  value={formData.nombre}
-                  onChange={handleChange}
-                  placeholder="Ej. Juan"
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
-                />
-                {state?.errors?.nombre && (
-                  <p className="text-xs text-rose-500 mt-1">{state.errors.nombre}</p>
-                )}
-              </div>
-
-              <div>
-                <label
-                  htmlFor="apellido"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Apellido
-                </label>
-                <input
-                  id="apellido"
-                  name="apellido"
-                  type="text"
-                  value={formData.apellido}
-                  onChange={handleChange}
-                  placeholder="Ej. Pérez"
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
-                />
-                {state?.errors?.apellido && (
-                  <p className="text-xs text-rose-500 mt-1">{state.errors.apellido}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Email con enlace a solicitar cambio */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300"
-                >
-                  Correo electrónico
-                </label>
-                <Link
-                  href="/profile/cambiar-email"
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 hover:underline transition-colors"
-                >
-                  Solicitar cambio de email →
-                </Link>
-              </div>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                disabled
-                readOnly
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 px-3 py-2 text-sm text-slate-500 cursor-not-allowed"
-              />
-            </div>
-          </div>
-
-          <hr className="border-slate-200 dark:border-slate-800" />
-
-          {/* Sección 2: Datos de Cobro Personales */}
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
-                Datos de Cobro Personales
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Cuentas bancarias o billeteras virtuales donde recibirás tus transferencias.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="alias"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Alias
-                </label>
-                <input
-                  id="alias"
-                  name="alias"
-                  type="text"
-                  value={formData.alias}
-                  onChange={handleChange}
-                  placeholder="ej. mi.alias.mp"
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
-                />
-                {state?.errors?.alias && (
-                  <p className="text-xs text-rose-500 mt-1">{state.errors.alias}</p>
-                )}
-              </div>
-
-              <div>
-                <label
-                  htmlFor="bancoOProveedor"
-                  className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-                >
-                  Banco o Proveedor
-                </label>
-                <input
-                  id="bancoOProveedor"
-                  name="bancoOProveedor"
-                  type="text"
-                  value={formData.bancoOProveedor}
-                  onChange={handleChange}
-                  placeholder="ej. Mercado Pago, Banco Nación..."
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
-                />
-                {state?.errors?.bancoOProveedor && (
-                  <p className="text-xs text-rose-500 mt-1">
-                    {state.errors.bancoOProveedor}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="cbuCvu"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-              >
-                CBU / CVU
-              </label>
-              <input
-                id="cbuCvu"
-                name="cbuCvu"
-                type="text"
-                value={formData.cbuCvu}
-                onChange={handleChange}
-                placeholder="22 dígitos numéricos"
-                maxLength={22}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300"
-              />
-              {state?.errors?.cbuCvu && (
-                <p className="text-xs text-rose-500 mt-1">{state.errors.cbuCvu}</p>
-              )}
-            </div>
-          </div>
-
-          <hr className="border-slate-200 dark:border-slate-800" />
-
-          {/* Sección 3: Permisos y Accesos Rápidos */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
-              Cuenta y Permisos
-            </h3>
-
-            <div>
-              <label
-                htmlFor="role"
-                className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
-              >
-                Rol
-              </label>
-              <input
-                id="role"
-                name="role"
-                type="text"
-                value={formData.role}
-                disabled
-                readOnly
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 px-3 py-2 text-sm text-slate-500 cursor-not-allowed capitalize"
-              />
-              {state?.errors?.role && (
-                <p className="text-xs text-rose-500 mt-1">{state.errors.role}</p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <Link
-                href="/profile/change-password"
-                className="flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-              >
-                Cambiar contraseña
-              </Link>
-              <Link
-                href="/profile/qr"
-                className="flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-              >
-                Ver Mi Código QR
-              </Link>
-            </div>
-          </div>
-
-          {/* Botones de Acción */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-950 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 transition-colors"
-            >
-              {isPending ? 'Guardando...' : 'Guardar Cambios'}
-            </button>
-          </div>
-        </form>
+    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-black/20">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Mi Perfil
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Actualiza tu información personal y los datos predeterminados para cobros.
+          </p>
+        </div>
+        <Link
+          href="/negocios"
+          className="text-sm font-medium text-gray-600 transition hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+        >
+          ← Volver
+        </Link>
       </div>
+
+      {/* Alerta de mensaje global */}
+      {state?.message && (
+        <div
+          className={`mb-6 rounded-md p-3.5 text-sm font-medium ${
+            state.success
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+          }`}
+        >
+          {state.message}
+        </div>
+      )}
+
+      <form action={formAction} className="space-y-4">
+        {/* Sección 1: Datos Personales */}
+        <div className="space-y-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            Datos Personales
+          </h3>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="nombre" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Nombre
+              </label>
+              <input
+                id="nombre"
+                name="nombre"
+                type="text"
+                value={formData.nombre}
+                onChange={handleChange}
+                placeholder="Ej. Juan"
+                className={inputStyles}
+              />
+              {state?.errors?.nombre && (
+                <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{state.errors.nombre}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="apellido" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Apellido
+              </label>
+              <input
+                id="apellido"
+                name="apellido"
+                type="text"
+                value={formData.apellido}
+                onChange={handleChange}
+                placeholder="Ej. Pérez"
+                className={inputStyles}
+              />
+              {state?.errors?.apellido && (
+                <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{state.errors.apellido}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Email */}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Correo electrónico
+              </label>
+              <Link
+                href="/profile/cambiar-email"
+                className="text-xs font-medium text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-400"
+              >
+                Solicitar cambio de email →
+              </Link>
+            </div>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
+              disabled
+              readOnly
+              className="w-full rounded-md bg-black/5 px-3 py-2 text-gray-400 outline-1 outline-gray-200 cursor-not-allowed dark:bg-white/5 dark:text-gray-500 dark:outline-gray-800"
+            />
+          </div>
+        </div>
+
+        <hr className="border-gray-200 dark:border-white/10 my-6" />
+
+        {/* Sección 2: Datos de Cobro Personales */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              Datos de Cobro Personales
+            </h3>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              Cuentas bancarias o billeteras virtuales donde recibirás tus transferencias.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="alias" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Alias
+              </label>
+              <input
+                id="alias"
+                name="alias"
+                type="text"
+                value={formData.alias}
+                onChange={handleChange}
+                placeholder="ej. mi.alias.mp"
+                className={inputStyles}
+              />
+              {state?.errors?.alias && (
+                <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{state.errors.alias}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="bancoOProveedor" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Banco o Proveedor
+              </label>
+              <input
+                id="bancoOProveedor"
+                name="bancoOProveedor"
+                type="text"
+                value={formData.bancoOProveedor}
+                onChange={handleChange}
+                placeholder="ej. Mercado Pago, Banco Nación..."
+                className={inputStyles}
+              />
+              {state?.errors?.bancoOProveedor && (
+                <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{state.errors.bancoOProveedor}</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="cbuCvu" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              CBU / CVU
+            </label>
+            <input
+              id="cbuCvu"
+              name="cbuCvu"
+              type="text"
+              value={formData.cbuCvu}
+              onChange={handleChange}
+              placeholder="22 dígitos numéricos"
+              maxLength={22}
+              className={`${inputStyles} font-mono`}
+            />
+            {state?.errors?.cbuCvu && (
+              <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{state.errors.cbuCvu}</p>
+            )}
+          </div>
+        </div>
+
+        <hr className="border-gray-200 dark:border-white/10 my-6" />
+
+        {/* Sección 3: Permisos y Accesos Rápidos */}
+        <div className="space-y-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            Cuenta y Permisos
+          </h3>
+
+          <div>
+            <label htmlFor="role" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Rol
+            </label>
+            <input
+              id="role"
+              name="role"
+              type="text"
+              value={formData.role}
+              disabled
+              readOnly
+              className="w-full rounded-md bg-black/5 px-3 py-2 text-gray-400 outline-1 outline-gray-200 cursor-not-allowed capitalize dark:bg-white/5 dark:text-gray-500 dark:outline-gray-800"
+            />
+            {state?.errors?.role && (
+              <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{state.errors.role}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
+            <Link
+              href="/profile/change-password"
+              className="flex items-center justify-center rounded-md bg-gray-100 px-4 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+            >
+              Cambiar contraseña
+            </Link>
+            <Link
+              href="/profile/qr"
+              className="flex items-center justify-center rounded-md bg-gray-100 px-4 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+            >
+              Ver Mi Código QR
+            </Link>
+          </div>
+        </div>
+
+        {/* Botones de Acción */}
+        <div className="flex justify-end gap-3 pt-6">
+          <Link
+            href="/negocios"
+            className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+          >
+            Cancelar
+          </Link>
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isPending ? 'Guardando...' : 'Guardar Cambios'}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

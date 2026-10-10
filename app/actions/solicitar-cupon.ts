@@ -32,14 +32,7 @@ export async function solicitarCuponAction(formData: FormData): Promise<Solicita
     const vendedor = await prisma.usuario.findUnique({
       where: { qrToken: vendedorQrToken },
       include: {
-        negocio: {
-          select: {
-            id: true,
-            nombre: true,
-            activo: true,
-            porcentajeFee: true, // Se obtiene el fee/descuento del negocio
-          },
-        },
+        negocio: true
       },
     });
 
@@ -52,9 +45,8 @@ export async function solicitarCuponAction(formData: FormData): Promise<Solicita
     }
 
     // 3. Determinación y sanitización del valor del descuento/fee
-    // Se extrae el fee del negocio o se asigna un valor base por defecto (ej. 10%) si es nulo
     const descuentoAplicable = vendedor.negocio.porcentajeFee 
-      ? Number(vendedor.negocio.porcentajeFee)
+      ? Number(vendedor.negocio.valorDescuentoDefault)
       : 10.0;
 
     // 4. Crear o buscar al cliente (Upsert)

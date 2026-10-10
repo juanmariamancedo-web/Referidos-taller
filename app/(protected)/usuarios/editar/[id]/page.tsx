@@ -29,7 +29,17 @@ export default async function UserEditPage({ params }: PageProps) {
     notFound()
   }
 
-  const targetUser = response.data
+  const rawUser = response.data
+
+  // 3. Normalizar las propiedades `null` a `string` para cumplir estrictamente con `UserData`
+  const targetUser = {
+    ...rawUser,
+    nombre: rawUser.nombre ?? "",
+    apellido: rawUser.apellido ?? "",
+    alias: rawUser.alias ?? "",
+    cbuCvu: rawUser.cbuCvu ?? "",
+    bancoOProveedor: rawUser.bancoOProveedor ?? "",
+  }
 
   return (
     <div className="mx-auto max-w-4xl p-6 w-full">
@@ -39,15 +49,22 @@ export default async function UserEditPage({ params }: PageProps) {
           Editar Usuario
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Modificando información de {targetUser.nombre ?? "Usuario"} ({targetUser.email})
+          Modificando información de {targetUser.nombre || "Usuario"} ({targetUser.email})
         </p>
       </div>
 
       {/* Formulario Cliente y sección inferior */}
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <ProfileForm 
-          userData={targetUser} 
-          currentUserRol={currentUser.rol} 
+          userData={{
+            ...targetUser,
+            nombre: targetUser.nombre ?? "",
+            apellido: targetUser.apellido ?? "",
+            alias: targetUser.alias ?? "",
+            cbuCvu: targetUser.cbuCvu ?? "",
+            bancoOProveedor: targetUser.bancoOProveedor ?? "",
+          }} 
+          currentUserRole={currentUser.rol} 
         />
 
         {/* Separador */}

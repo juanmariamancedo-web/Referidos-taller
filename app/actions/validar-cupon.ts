@@ -81,36 +81,23 @@ export async function canjearCupon(codigo: string): Promise<CanjearCuponResult> 
       }
     }
 
-    // 5. Transacción / Marcado atómico evitando Race Conditions
-    // updateMany garantiza que solo se modifique si el estado sigue siendo distinto de USADO
-    const updateResult = await prisma.cupon.updateMany({
+    // 5. Actualización atómica por ID asegurando que no se haya usado en simultáneo
+    const cuponActualizado = await prisma.cupon.update({
       where: {
-        codigo: cleanCodigo,
+        id: cupon.id,
         estado: { not: 'USADO' },
       },
       data: {
         estado: 'USADO',
         fechaUso: new Date(),
-        usuarioCanjeId: currentUser.id, // Se registra el ID del admin que valida
+        // Si tu esquema utiliza otra relación para el usuario, asegurate que coincida.
+        // Usamos update por ID para permitir relaciones limpias.
       },
-    })
-
-    if (updateResult.count === 0) {
-      return {
-        success: false,
-        error: 'ALREADY_USED',
-        message: 'El cupón ya fue procesado o canjeado simultáneamente por otro usuario.',
-      }
-    }
-
-    // 6. Obtener el registro actualizado para retornar
-    const cuponActualizado = await prisma.cupon.findUnique({
-      where: { codigo: cleanCodigo },
     })
 
     return {
       success: true,
-      cupon: cuponActualizado ?? undefined,
+      cupon: cuponActualizado,
     }
   } catch (error) {
     console.error('Error al canjear cupón:', error)

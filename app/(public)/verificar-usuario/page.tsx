@@ -165,7 +165,7 @@ export default function VerificarCuentaPage() {
               htmlFor="nombre"
               className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-300"
             >
-              Nombre Completo
+              Nombre
             </label>
             <input
               id="nombre"

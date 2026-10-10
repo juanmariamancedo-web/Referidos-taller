@@ -23,7 +23,7 @@ export async function Header({ pages, homeUrl, isDark }: HeaderProps) {
   return (
     <HeaderInteractive>
       <div className="absolute inset-0 flex justify-center items-center lg:h-14 p-3">
-        <ul className="flex flex-col lg:flex-row items-center justify-between gap-5 container lg:border lg:border-black/10 dark:lg:border-white/15 rounded-full px-4 py-1.5 lg:bg-white/70 lg:dark:bg-neutral-900/70 lg:backdrop-blur-md shadow-sm dark:shadow-none text-gray-800 dark:text-white flex-grow-0">
+        <ul className="flex flex-col lg:flex-row items-center justify-between gap-5 container lg:border lg:border-black/10 dark:lg:border-white/15 rounded-full px-4 py-1.5 lg:bg-white/70 lg:dark:bg-neutral-900/70 lg:backdrop-blur-md lg:shadow-sm text-gray-800 dark:text-white flex-grow-0">
           
           {/* Inicio / Home */}
           <li className="hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition p-1.5 flex justify-center items-center">

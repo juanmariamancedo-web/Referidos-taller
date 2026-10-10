@@ -13,7 +13,6 @@ export const transporter = nodemailer.createTransport({
 export async function sendVerificationEmail(toEmail: string, code: string) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
 
-  // Construcción limpia de los searchParams
   const params = new URLSearchParams({
     email: toEmail,
     code: code,
@@ -53,11 +52,16 @@ export async function sendVerificationEmail(toEmail: string, code: string) {
 }
 
 export async function sendForgotPasswordEmail(toEmail: string, code: string) {
-  // Construir el enlace dinámico a la pantalla de ingreso de código
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const redirectUrl = `${baseUrl}/request-forgotten-password-code`;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
 
-  // Enviar el correo usando el transporter de lib/mailer
+  // Construcción limpia de los parámetros con el email y el código
+  const params = new URLSearchParams({
+    email: toEmail,
+    code: code,
+  })
+
+  const redirectUrl = `${baseUrl}/request-forgotten-password-code?${params.toString()}`
+
   await transporter.sendMail({
     from: `"Soporte" <${process.env.GMAIL_USER || process.env.SMTP_USER}>`,
     to: toEmail,
@@ -86,12 +90,19 @@ export async function sendForgotPasswordEmail(toEmail: string, code: string) {
         <p style="font-size: 12px; color: #94a3b8; margin-bottom: 0;">Este código expirará en 15 minutos. Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.</p>
       </div>
     `,
-  });
+  })
 }
 
 export async function sendUserVerificationEmail(toEmail: string, code: string) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-  const verificationLink = `${baseUrl}/verificar-usuario`
+
+  // Construcción limpia de los parámetros con el email y el código
+  const params = new URLSearchParams({
+    email: toEmail,
+    code: code,
+  })
+
+  const verificationLink = `${baseUrl}/verificar-usuario?${params.toString()}`
 
   const mailOptions = {
     from: `"Soporte" <${process.env.SMTP_USER}>`,

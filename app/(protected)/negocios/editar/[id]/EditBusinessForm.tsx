@@ -4,13 +4,14 @@ import { useActionState } from "react"
 import Link from "next/link"
 import { updateBusiness, UpdateBusinessState } from "@/app/actions/business"
 
-// Tipado representativo del modelo de negocio
+// Tipado actualizado con el campo valorDescuentoDefault
 interface Business {
   id: string
   userEmail: string
   nombre: string
   direccion?: string | null
   porcentajeFee?: number | null
+  valorDescuentoDefault?: number | null
   bancoOProveedor?: string | null
   alias?: string | null
   cbuCvu?: string | null
@@ -108,8 +109,27 @@ export default function EditBusinessForm({ business }: EditBusinessFormProps) {
           />
         </div>
 
-        {/* Porcentaje Fee y Banco/Proveedor */}
+        {/* Descuento por Defecto y Porcentaje Fee */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Valor de Descuento por Defecto (%)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              name="valorDescuentoDefault"
+              defaultValue={business.valorDescuentoDefault ?? 10.00}
+              placeholder="Ej: 10.00"
+              className={inputStyles}
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Porcentaje o valor que otorgan los cupones de este negocio.
+            </p>
+          </div>
+
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Porcentaje Fee (%)
@@ -125,7 +145,10 @@ export default function EditBusinessForm({ business }: EditBusinessFormProps) {
               className={inputStyles}
             />
           </div>
+        </div>
 
+        {/* Banco / Proveedor y Alias */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Banco / Proveedor
@@ -138,10 +161,7 @@ export default function EditBusinessForm({ business }: EditBusinessFormProps) {
               className={inputStyles}
             />
           </div>
-        </div>
 
-        {/* Alias y CBU/CVU */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Alias
@@ -154,19 +174,20 @@ export default function EditBusinessForm({ business }: EditBusinessFormProps) {
               className={inputStyles}
             />
           </div>
+        </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              CBU / CVU
-            </label>
-            <input
-              type="text"
-              name="cbuCvu"
-              defaultValue={business.cbuCvu ?? ""}
-              placeholder="00000031000..."
-              className={inputStyles}
-            />
-          </div>
+        {/* CBU / CVU */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            CBU / CVU
+          </label>
+          <input
+            type="text"
+            name="cbuCvu"
+            defaultValue={business.cbuCvu ?? ""}
+            placeholder="00000031000..."
+            className={inputStyles}
+          />
         </div>
 
         {/* Checkbox Activo */}

@@ -1,5 +1,3 @@
-"use server"
-
 import { notFound, redirect } from "next/navigation"
 import { getUserAuth } from "@/app/actions/auth"
 import { getBusinessById } from "@/app/actions/business"
@@ -29,22 +27,18 @@ export default async function EditBusinessPage({ params }: EditBusinessPageProps
     notFound()
   }
 
-  return (
-    <div className="mx-auto max-w-4xl p-6 w-full">
-      {/* Encabezado */}
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            Editar Negocio
-          </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Modifica la información y configuración general del negocio.
-          </p>
-        </div>
-      </div>
+  // 4. Serializar los campos Decimal de Prisma a Number o Primitive Types
+  const serializedBusiness = {
+    ...business,
+    valorDescuentoDefault: business.valorDescuentoDefault ? Number(business.valorDescuentoDefault) : null,
+    montoComisionDefault: business.montoComisionDefault ? Number(business.montoComisionDefault) : null,
+    porcentajeFee: business.porcentajeFee ? Number(business.porcentajeFee) : null,
+  }
 
-      {/* Formulario Cliente con los datos precargados */}
-      <EditBusinessForm business={business} />
+  return (
+    <div className="mx-auto max-w-4xl p-4 w-full">
+      {/* Formulario Cliente con los datos precargados y serializados */}
+      <EditBusinessForm business={serializedBusiness} />
     </div>
   )
 }

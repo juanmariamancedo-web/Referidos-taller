@@ -172,7 +172,7 @@ export default function UserEditForm({ userData, currentUserRole }: UserEditForm
                 Correo Electrónico
               </label>
               <Link
-                href={`/usuarios/${userData.id}/cambiar-email`}
+                href={`/usuarios/editar/${userData.id}/cambiar-email`}
                 className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
               >
                 Solicitar cambio de email →

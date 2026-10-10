@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState } from "react"
+import { useState, useTransition, useEffect, useActionState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { preRegisterUser, PreRegisterUserState } from "@/app/actions/users"
@@ -29,11 +29,13 @@ export default function NuevoUsuarioForm({
   const inputStyles =
     "w-full rounded-md bg-black/5 px-3 py-2 text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600 dark:bg-white/5 dark:text-white dark:outline-gray-700"
 
-  // Redirección al completarse exitosamente
-  if (state?.success) {
-    router.push("/usuarios")
-    router.refresh()
-  }
+  // 👈 CORREGIDO: Uso de useEffect para la redirección segura
+  useEffect(() => {
+    if (state?.success) {
+      router.push("/usuarios")
+      router.refresh()
+    }
+  }, [state?.success, router])
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-black/20">

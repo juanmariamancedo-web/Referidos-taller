@@ -2,6 +2,10 @@
 
 import { prisma } from '@/lib/prisma'
 import { Prisma, Rol } from '@prisma/client'
+import { getUserAuth } from '@/app/actions/auth'
+import { preRegisterUser } from '@/app/actions/users'
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
 /**
  * Obtiene un negocio por su ID junto con el email del primer usuario/encargado asignado.
@@ -9,8 +13,8 @@ import { Prisma, Rol } from '@prisma/client'
 export async function getBusinessById(id: string) {
   const { data } = await getUserAuth()
 
-  if(!data || data.rol !== Rol.ADMIN ){
-    return ({ success: false, message: 'Acceso denegado', data: null })
+  if (!data || data.rol !== Rol.ADMIN) {
+    return { success: false, message: 'Acceso denegado', data: null }
   }
 
   try {
@@ -33,8 +37,9 @@ export async function getBusinessById(id: string) {
       data: {
         ...negocio,
         userEmail: negocio.usuarios[0]?.email || '',
-        // Convertimos el Decimal de Prisma a un number nativo de JS
+        // Convertimos los Decimals de Prisma a numbers nativos de JS
         porcentajeFee: negocio.porcentajeFee ? Number(negocio.porcentajeFee) : 0,
+        valorDescuentoDefault: negocio.valorDescuentoDefault ? Number(negocio.valorDescuentoDefault) : 10.00,
       },
     }
   } catch (error) {
@@ -46,7 +51,6 @@ export async function getBusinessById(id: string) {
 /**
  * Actualiza un negocio existente (Rango Admin sin restricciones).
  */
-
 export interface UpdateBusinessState {
   error?: string
   success?: boolean
@@ -75,6 +79,7 @@ export async function updateBusiness(
   const nombre = (formData.get('nombre') as string)?.trim()
   const direccion = (formData.get('direccion') as string)?.trim() || null
   const porcentajeFee = parseFloat(formData.get('porcentajeFee') as string) || 0
+  const valorDescuentoDefault = parseFloat(formData.get('valorDescuentoDefault') as string) || 10.00
   const bancoOProveedor = (formData.get('bancoOProveedor') as string)?.trim() || null
   const alias = (formData.get('alias') as string)?.trim() || null
   const cbuCvu = (formData.get('cbuCvu') as string)?.trim() || null
@@ -160,6 +165,7 @@ export async function updateBusiness(
           nombre,
           direccion,
           porcentajeFee,
+          valorDescuentoDefault,
           bancoOProveedor,
           alias,
           cbuCvu,
@@ -175,7 +181,6 @@ export async function updateBusiness(
         where: { id: targetUser.id },
         data: {
           negocioId: businessId,
-          // Si el usuario era VENDEDOR o NO_VERIFICADO, se promueve a GERENTE
           rol: Rol.GERENTE,
         },
       })
@@ -206,6 +211,7 @@ const ALLOWED_SORT_FIELDS: (keyof Prisma.NegocioOrderByWithRelationInput)[] = [
   'nombre',
   'direccion',
   'porcentajeFee',
+  'valorDescuentoDefault',
   'bancoOProveedor',
   'alias',
   'cbuCvu',
@@ -216,17 +222,15 @@ const ALLOWED_SORT_FIELDS: (keyof Prisma.NegocioOrderByWithRelationInput)[] = [
 
 export async function getBusiness({ search = '', sort = '', page = 1 }: GetBusinessParams) {
   try {
-    const { data : user } = await getUserAuth()
+    const { data: user } = await getUserAuth()
 
-    if(!user || user.rol !== Rol.ADMIN ){
-      return ({ success: false, message: 'Acceso denegado.', data: null })
+    if (!user || user.rol !== Rol.ADMIN) {
+      return { success: false, message: 'Acceso denegado.', data: null }
     }
 
-    
     const limit = 10
     const skip = (page - 1) * limit
 
-    // Orden por defecto
     let orderBy: Prisma.NegocioOrderByWithRelationInput = { createdAt: 'desc' }
 
     if (sort) {
@@ -237,14 +241,12 @@ export async function getBusiness({ search = '', sort = '', page = 1 }: GetBusin
         const direction: 'asc' | 'desc' = isDesc ? 'desc' : 'asc'
         const field = sort.slice(0, isDesc ? -4 : -3) as keyof Prisma.NegocioOrderByWithRelationInput
 
-        // Validar que el campo exista dentro de los campos permitidos
         if (ALLOWED_SORT_FIELDS.includes(field)) {
           orderBy = { [field]: direction }
         }
       }
     }
 
-    // Condición de búsqueda general
     const whereCondition: Prisma.NegocioWhereInput = search.trim()
       ? {
           OR: [
@@ -257,7 +259,6 @@ export async function getBusiness({ search = '', sort = '', page = 1 }: GetBusin
         }
       : {}
 
-    // Consulta en paralelo de los negocios y el conteo total
     const [data, totalCount] = await Promise.all([
       prisma.negocio.findMany({
         where: whereCondition,
@@ -286,12 +287,9 @@ export async function getBusiness({ search = '', sort = '', page = 1 }: GetBusin
   }
 }
 
-
-import { getUserAuth } from '@/app/actions/auth'
-import { preRegisterUser } from '@/app/actions/users' // Importamos la Server Action de pre-registro
-import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
-
+/**
+ * Crea un nuevo negocio y lo vincula con el usuario encargado.
+ */
 export interface CreateBusinessState {
   error?: string
   success?: boolean
@@ -315,6 +313,7 @@ export async function createBusiness(
   const nombre = (formData.get('nombre') as string)?.trim()
   const direccion = (formData.get('direccion') as string)?.trim() || null
   const porcentajeFee = parseFloat(formData.get('porcentajeFee') as string) || 0
+  const valorDescuentoDefault = parseFloat(formData.get('valorDescuentoDefault') as string) || 10.00
   const bancoOProveedor = (formData.get('bancoOProveedor') as string)?.trim() || null
   const alias = (formData.get('alias') as string)?.trim() || null
   const cbuCvu = (formData.get('cbuCvu') as string)?.trim() || null
@@ -335,7 +334,6 @@ export async function createBusiness(
       where: { email: userEmail },
     })
 
-    // Si el usuario NO existe, usamos la Server Action preRegisterUser
     if (!targetUser) {
       const userFormData = new FormData()
       userFormData.append('email', userEmail)
@@ -348,7 +346,6 @@ export async function createBusiness(
         }
       }
 
-      // Obtener el usuario recién pre-registrado
       targetUser = await prisma.usuario.findUnique({
         where: { email: userEmail },
       })
@@ -366,6 +363,7 @@ export async function createBusiness(
         nombre,
         direccion,
         porcentajeFee,
+        valorDescuentoDefault,
         bancoOProveedor,
         alias,
         cbuCvu,

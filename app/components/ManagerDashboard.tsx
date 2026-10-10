@@ -25,7 +25,8 @@ export default function ManagerDashboard({ userData, data }: ManagerDashboardPro
       </div>
 
       <div className="flex flex-col gap-6 w-full">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Métricas acotadas a 3 columnas sin datos globales ajenos */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <section className="flex flex-col justify-between rounded-xl bg-black/5 p-5 text-gray-900 dark:bg-white/5 dark:text-white border border-gray-200 dark:border-white/10 shadow-sm">
             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Ventas del Mes
@@ -50,15 +51,6 @@ export default function ManagerDashboard({ userData, data }: ManagerDashboardPro
             </h2>
             <span className="font-bold text-3xl mt-4 text-yellow-600 dark:text-yellow-400">
               {data?.pendientesCobro ?? 0}
-            </span>
-          </section>
-
-          <section className="flex flex-col justify-between rounded-xl bg-black/5 p-5 text-gray-900 dark:bg-white/5 dark:text-white border border-gray-200 dark:border-white/10 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Total Negocios
-            </h2>
-            <span className="font-bold text-3xl mt-4 text-purple-600 dark:text-purple-400">
-              {data?.totalNegocios ?? 0}
             </span>
           </section>
         </div>

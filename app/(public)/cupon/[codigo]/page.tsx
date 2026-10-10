@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import CardCuponCliente from './CardCuponCliente';
+import TarjetaBeneficio from './TarjetaBeneficio';
 
 interface PageProps {
   params: Promise<{ codigo: string }>;
@@ -41,7 +42,8 @@ export default async function VistaCuponPage({ params }: PageProps) {
   return (
     <main className="min-h-screen text-slate-100 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
-        <CardCuponCliente cupon={datosCupon} />
+        {/* <CardCuponCliente cupon={datosCupon} /> */}
+        <TarjetaBeneficio cupon={datosCupon} />
       </div>
     </main>
   );

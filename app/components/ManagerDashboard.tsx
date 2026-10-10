@@ -2,12 +2,14 @@ import Link from "next/link"
 
 interface ManagerDashboardProps {
   userData?: any
+  data?: any
 }
 
-export default function ManagerDashboard({ userData }: ManagerDashboardProps) {
+export default function ManagerDashboard({ userData, data }: ManagerDashboardProps) {
+  const cupones = data?.lastCupones || []
+
   return (
     <div className="flex flex-col items-center w-full max-w-6xl mx-auto p-4">
-      {/* Cabecera personalizada */}
       <div className="w-full flex justify-between items-center pb-6 lg:pb-10">
         <div>
           <h1 className="text-gray-900 dark:text-white text-2xl md:text-3xl lg:text-4xl font-bold">
@@ -18,62 +20,56 @@ export default function ManagerDashboard({ userData }: ManagerDashboardProps) {
           </p>
         </div>
         <span className="text-xs uppercase px-3 py-1 rounded-full font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-          Rol: {userData?.rol || 'Gerente'}
+          Rol: {userData?.rol || 'GERENTE'}
         </span>
       </div>
 
       <div className="flex flex-col gap-6 w-full">
-        {/* Tarjetas de Métricas de Gerencia */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <section className="flex flex-col justify-between rounded-xl bg-black/5 p-5 text-gray-900 dark:bg-white/5 dark:text-white border border-gray-200 dark:border-white/10 shadow-sm">
             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Ventas del Mes
             </h2>
             <span className="font-bold text-3xl mt-4 text-emerald-600 dark:text-emerald-400">
-              $ --
+              ${(data?.ventasMes ?? 0).toLocaleString('es-AR')}
             </span>
           </section>
 
           <section className="flex flex-col justify-between rounded-xl bg-black/5 p-5 text-gray-900 dark:bg-white/5 dark:text-white border border-gray-200 dark:border-white/10 shadow-sm">
             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Presupuestos Aprobados
+              Cupones Canjeados
             </h2>
             <span className="font-bold text-3xl mt-4 text-blue-600 dark:text-blue-400">
-              --
+              {data?.presupuestosAprobados ?? 0}
             </span>
           </section>
 
           <section className="flex flex-col justify-between rounded-xl bg-black/5 p-5 text-gray-900 dark:bg-white/5 dark:text-white border border-gray-200 dark:border-white/10 shadow-sm">
             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Pendientes de Cobro
+              Pendientes
             </h2>
             <span className="font-bold text-3xl mt-4 text-yellow-600 dark:text-yellow-400">
-              --
+              {data?.pendientesCobro ?? 0}
             </span>
           </section>
 
           <section className="flex flex-col justify-between rounded-xl bg-black/5 p-5 text-gray-900 dark:bg-white/5 dark:text-white border border-gray-200 dark:border-white/10 shadow-sm">
             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Vendedores Activos
+              Total Negocios
             </h2>
             <span className="font-bold text-3xl mt-4 text-purple-600 dark:text-purple-400">
-              --
+              {data?.totalNegocios ?? 0}
             </span>
           </section>
         </div>
 
-        {/* Secciones Inferiores */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Últimos Presupuestos */}
           <section className="lg:col-span-2 flex flex-col bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-gray-200 dark:border-white/10 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Operaciones Recientes
+                Cupones / Operaciones Recientes
               </h2>
-              <Link
-                href="/presupuestos"
-                className="text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400"
-              >
+              <Link href="/cupones" className="text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400">
                 Ver todos →
               </Link>
             </div>
@@ -89,37 +85,42 @@ export default function ManagerDashboard({ userData }: ManagerDashboardProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-white/10">
-                  <tr>
-                    <td colSpan={4} className="text-center py-6 text-gray-500">
-                      No hay registros recientes
-                    </td>
-                  </tr>
+                  {cupones.length > 0 ? (
+                    cupones.map((c: any) => (
+                      <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition">
+                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{c.codigo}</td>
+                        <td className="px-4 py-3">{c.cliente?.nombre || c.cliente?.telefono}</td>
+                        <td className="px-4 py-3">${Number(c.montoFinalCliente || 0).toLocaleString('es-AR')}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${c.estado === 'USADO' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>
+                            {c.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="text-center py-6 text-gray-500">
+                        No hay registros recientes
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </section>
 
-          {/* Top Vendedores */}
           <section className="flex flex-col bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-gray-200 dark:border-white/10 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-              Rendimiento del Equipo
+              Accesos Rápidos
             </h2>
-            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10">
-              <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-                <thead className="bg-gray-50 dark:bg-white/[0.02] text-xs uppercase text-gray-500 dark:text-gray-400">
-                  <tr>
-                    <th className="px-4 py-3">Vendedor</th>
-                    <th className="px-4 py-3">Ventas</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-white/10">
-                  <tr>
-                    <td colSpan={2} className="text-center py-6 text-gray-500">
-                      Sin datos
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="flex flex-col gap-3">
+              <Link href="/cupones" className="w-full text-center rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700">
+                Gestionar Cupones
+              </Link>
+              <Link href="/usuarios/nuevo" className="w-full text-center rounded-md bg-gray-100 dark:bg-white/10 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-white transition hover:bg-gray-200 dark:hover:bg-white/20">
+                + Crear Nuevo Usuario
+              </Link>
             </div>
           </section>
         </div>

@@ -27,13 +27,28 @@ export default async function AdminLayout({children}:{children: JSX.Element}){
                     <div className="p-3 sm:p-0">
                         <footer className="rounded-lg shadow bg-black/5 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6 dark:bg-white/5 dark:text-white backdrop-blur-lg container mx-auto mb-10">
                             <div className="w-full mx-auto max-w-screen-xl p-4 md:flex md:items-center md:justify-between">
-                                <span className="text-sm sm:text-center text-yellow-800/90 dark:text-yellow-200/90">© 2026 <a href="https://midu.dev/" className="hover:underline">Taller Mecánico - Rafael Mancedo</a>. Todos los derechos reservados</span>
+                                <span className="text-sm sm:text-center text-yellow-800/90 dark:text-yellow-200/90">
+                                © 2026{" "}
+                                <a
+                                    href="https://www.instagram.com/tallermecanico.rafaelmancedo?mdxt=OGM0bndlOWVsY3M5"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:underline font-semibold"
+                                >
+                                    Taller Mecánico - Rafael Mancedo
+                                </a>
+                                . Todos los derechos reservados
+                                </span>
                                 <ul className="flex flex-wrap items-center mt-3 text-sm font-medium dark:text-white/90 sm:mt-0">
                                     <li>
-                                        <Link href="/quienes-somos" className="hover:underline me-4 md:me-6">Quienes somos?</Link>
-                                    </li>
-                                    <li>
-                                        <Link href="/contacto" className="hover:underline">Contacto</Link>
+                                        <a
+                                        href="https://www.instagram.com/tallermecanico.rafaelmancedo?mdxt=OGM0bndlOWVsY3M5"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="hover:underline me-4 md:me-6"
+                                        >
+                                        ¿Quiénes somos?
+                                        </a>
                                     </li>
                                 </ul>
                             </div>

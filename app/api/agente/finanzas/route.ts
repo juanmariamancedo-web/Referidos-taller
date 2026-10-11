@@ -5,11 +5,17 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
     const accion = searchParams.get("accion")
-    const token = searchParams.get("token")
-    const secretToken = process.env.AGENTE_SECRET_TOKEN
+    
+    // Obtiene el token desde la URL (?token=...) o desde el Header (Bearer ...)
+    const urlToken = searchParams.get("token")
+    const headerToken = req.headers.get("authorization")?.replace("Bearer ", "")
+    const tokenRecibido = urlToken || headerToken
 
-    // Validación del token secreto
-    if (!token || token !== secretToken) {
+    // Token esperado (se lee de la variable de entorno o usa el valor de respaldo)
+    const tokenEsperado = process.env.AGENTE_SECRET_TOKEN || "sk_live_finanzas_982f3a7d1e4b6c89012a45678f"
+
+    // Validar autorización
+    if (!tokenRecibido || tokenRecibido !== tokenEsperado) {
       return NextResponse.json(
         { success: false, error: "No autorizado." },
         { status: 401 }

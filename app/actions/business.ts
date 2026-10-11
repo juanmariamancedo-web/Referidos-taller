@@ -40,6 +40,7 @@ export async function getBusinessById(id: string) {
         // Convertimos los Decimals de Prisma a numbers nativos de JS
         porcentajeFee: negocio.porcentajeFee ? Number(negocio.porcentajeFee) : 0,
         valorDescuentoDefault: negocio.valorDescuentoDefault ? Number(negocio.valorDescuentoDefault) : 10.00,
+        montoComisionDefault: negocio.montoComisionDefault ? Number(negocio.montoComisionDefault) : 3000.00,
       },
     }
   } catch (error) {
@@ -80,6 +81,7 @@ export async function updateBusiness(
   const direccion = (formData.get('direccion') as string)?.trim() || null
   const porcentajeFee = parseFloat(formData.get('porcentajeFee') as string) || 0
   const valorDescuentoDefault = parseFloat(formData.get('valorDescuentoDefault') as string) || 10.00
+  const montoComisionDefault = parseFloat(formData.get('montoComisionDefault') as string) || 3000.00
   const bancoOProveedor = (formData.get('bancoOProveedor') as string)?.trim() || null
   const alias = (formData.get('alias') as string)?.trim() || null
   const cbuCvu = (formData.get('cbuCvu') as string)?.trim() || null
@@ -166,6 +168,7 @@ export async function updateBusiness(
           direccion,
           porcentajeFee,
           valorDescuentoDefault,
+          montoComisionDefault,
           bancoOProveedor,
           alias,
           cbuCvu,
@@ -212,6 +215,7 @@ const ALLOWED_SORT_FIELDS: (keyof Prisma.NegocioOrderByWithRelationInput)[] = [
   'direccion',
   'porcentajeFee',
   'valorDescuentoDefault',
+  'montoComisionDefault',
   'bancoOProveedor',
   'alias',
   'cbuCvu',
@@ -314,6 +318,7 @@ export async function createBusiness(
   const direccion = (formData.get('direccion') as string)?.trim() || null
   const porcentajeFee = parseFloat(formData.get('porcentajeFee') as string) || 0
   const valorDescuentoDefault = parseFloat(formData.get('valorDescuentoDefault') as string) || 10.00
+  const montoComisionDefault = parseFloat(formData.get('montoComisionDefault') as string) || 3000.00
   const bancoOProveedor = (formData.get('bancoOProveedor') as string)?.trim() || null
   const alias = (formData.get('alias') as string)?.trim() || null
   const cbuCvu = (formData.get('cbuCvu') as string)?.trim() || null
@@ -364,6 +369,7 @@ export async function createBusiness(
         direccion,
         porcentajeFee,
         valorDescuentoDefault,
+        montoComisionDefault,
         bancoOProveedor,
         alias,
         cbuCvu,

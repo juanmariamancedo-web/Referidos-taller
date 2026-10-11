@@ -112,10 +112,33 @@ export default function CreateBusinessForm() {
               max="100"
               name="porcentajeFee"
               defaultValue="0"
-              placeholder="Ej: 2.5"
+              placeholder="Ej: 20.00"
               className={inputStyles}
             />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Retención que se aplica sobre las comisiones de los vendedores.
+            </p>
           </div>
+        </div>
+
+        {/* Monto de Comisión por Defecto para Vendedores */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Comisión Base por Venta para Vendedores ($) *
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            name="montoComisionDefault"
+            required
+            defaultValue="3000.00"
+            placeholder="Ej: 3000.00"
+            className={inputStyles}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Importe que se le asignará al vendedor por cada cupón exitoso de este negocio.
+          </p>
         </div>
 
         {/* Banco / Proveedor y Alias */}

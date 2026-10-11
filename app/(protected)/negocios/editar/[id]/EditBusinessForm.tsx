@@ -4,7 +4,7 @@ import { useActionState } from "react"
 import Link from "next/link"
 import { updateBusiness, UpdateBusinessState } from "@/app/actions/business"
 
-// Tipado actualizado con el campo valorDescuentoDefault
+// Tipado actualizado con valorDescuentoDefault y montoComisionDefault
 interface Business {
   id: string
   userEmail: string
@@ -12,6 +12,7 @@ interface Business {
   direccion?: string | null
   porcentajeFee?: number | null
   valorDescuentoDefault?: number | null
+  montoComisionDefault?: number | null
   bancoOProveedor?: string | null
   alias?: string | null
   cbuCvu?: string | null
@@ -141,10 +142,33 @@ export default function EditBusinessForm({ business }: EditBusinessFormProps) {
               max="100"
               name="porcentajeFee"
               defaultValue={business.porcentajeFee ?? 0}
-              placeholder="Ej: 2.5"
+              placeholder="Ej: 20.00"
               className={inputStyles}
             />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Retención sobre las comisiones de los vendedores.
+            </p>
           </div>
+        </div>
+
+        {/* Monto de Comisión por Defecto para Vendedores */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Comisión Base por Venta para Vendedores ($) *
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            name="montoComisionDefault"
+            required
+            defaultValue={business.montoComisionDefault ?? 3000.00}
+            placeholder="Ej: 3000.00"
+            className={inputStyles}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Importe que se le asignará al vendedor por cada cupón exitoso de este negocio.
+          </p>
         </div>
 
         {/* Banco / Proveedor y Alias */}

@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { getUserAuth } from "@/app/actions/auth"
-import { EstadoCupon, Prisma, Rol } from "@prisma/client"
+import { EstadoCupon, Prisma, Rol, TipoDescuento } from "@prisma/client"
 
 // ----------------------------------------------------------------------
 // 1. Definición de Payloads de Prisma
@@ -46,6 +46,8 @@ const cuponDetallePayload = Prisma.validator<Prisma.CuponDefaultArgs>()({
             id: true,
             nombre: true,
             porcentajeFee: true,
+            valorDescuentoDefault: true,
+            montoComisionDefault: true,
           },
         },
       },
@@ -100,11 +102,26 @@ function formatCupon<T extends Record<string, any>>(cupon: T) {
   return {
     ...cupon,
     valorDescuento: cupon.valorDescuento ? Number(cupon.valorDescuento) : 0,
+    montoOriginal: cupon.montoOriginal ? Number(cupon.montoOriginal) : null,
+    montoDescuento: cupon.montoDescuento ? Number(cupon.montoDescuento) : null,
+    montoFinalCliente: cupon.montoFinalCliente ? Number(cupon.montoFinalCliente) : null,
+    montoComisionVendedor: cupon.montoComisionVendedor ? Number(cupon.montoComisionVendedor) : null,
+    porcentajeFeeAplicado: cupon.porcentajeFeeAplicado ? Number(cupon.porcentajeFeeAplicado) : null,
+    comisionDuenoCalculada: cupon.comisionDuenoCalculada ? Number(cupon.comisionDuenoCalculada) : null,
     createdAt: cupon.createdAt ? new Date(cupon.createdAt).toISOString() : "",
     fechaExpiracion: cupon.fechaExpiracion
       ? new Date(cupon.fechaExpiracion).toISOString()
       : null,
     fechaUso: cupon.fechaUso ? new Date(cupon.fechaUso).toISOString() : null,
+    usuario: cupon.usuario ? {
+      ...cupon.usuario,
+      negocio: cupon.usuario.negocio ? {
+        ...cupon.usuario.negocio,
+        valorDescuentoDefault: cupon.usuario.negocio.valorDescuentoDefault ? Number(cupon.usuario.negocio.valorDescuentoDefault) : 0,
+        montoComisionDefault: cupon.usuario.negocio.montoComisionDefault ? Number(cupon.usuario.negocio.montoComisionDefault) : 0,
+        porcentajeFee: cupon.usuario.negocio.porcentajeFee ? Number(cupon.usuario.negocio.porcentajeFee) : 0,
+      } : null
+    } : null,
   }
 }
 
@@ -136,9 +153,10 @@ export interface GetCuponByIdResponse {
   data?: CuponDetalle | null
 }
 
-export interface ValidarCuponResponse {
-  success: boolean
-  message: string
+export interface CanjearCuponState {
+  error?: string
+  success?: boolean
+  message?: string
   data?: any
 }
 
@@ -446,12 +464,14 @@ export async function getCuponByCodigo(codigo: string) {
 }
 
 /**
- * Valida y canjea un cupón (Cambia estado a USADO).
+ * Valida y canjea un cupón: calcula descuentos, comisiones y congela el snapshot financiero.
  * REQUIERE OBLIGATORIAMENTE ROL DE ADMINISTRADOR (ADMIN).
  */
 export async function validarYCanjearCupon(
-  codigo: string
-): Promise<ValidarCuponResponse> {
+  codigo: string,
+  prevState: CanjearCuponState,
+  formData: FormData
+): Promise<CanjearCuponState> {
   const { data: userAuth } = await getUserAuth()
 
   if (!userAuth || !userAuth.id) {
@@ -468,11 +488,21 @@ export async function validarYCanjearCupon(
     }
   }
 
+  const montoOriginalStr = formData.get("montoOriginal") as string
+  const montoOriginal = parseFloat(montoOriginalStr)
+
+  if (isNaN(montoOriginal) || montoOriginal <= 0) {
+    return {
+      success: false,
+      error: "Por favor, ingresa un monto original válido.",
+    }
+  }
+
   try {
     if (!codigo || typeof codigo !== "string") {
       return {
         success: false,
-        message: "El código ingresado no es válido.",
+        error: "El código ingresado no es válido.",
       }
     }
 
@@ -494,11 +524,11 @@ export async function validarYCanjearCupon(
     if (!cupon) {
       return {
         success: false,
-        message: `El código ${codigoLimpio} no existe en el sistema.`,
+        error: `El código ${codigoLimpio} no existe en el sistema.`,
       }
     }
 
-    // 🕒 3. Comprobar si ya fue liquidado (Usando comprobación de objeto 1-a-1)
+    // 🕒 Comprobar si ya fue liquidado
     if (cupon.estado === EstadoCupon.LIQUIDADO || Boolean(cupon.liquidacionDetalle)) {
       if (cupon.estado !== EstadoCupon.LIQUIDADO) {
         await prisma.cupon.update({
@@ -510,12 +540,12 @@ export async function validarYCanjearCupon(
 
       return {
         success: false,
-        message: "Este cupón ya fue liquidado.",
+        error: "Este cupón ya fue liquidado.",
         data: formatCupon(cupon),
       }
     }
 
-    // 🕒 4. Comprobar vencimiento
+    // 🕒 Comprobar vencimiento
     const ahora = new Date()
     const estaVencidoPorFecha = cupon.fechaExpiracion && new Date(cupon.fechaExpiracion) < ahora
 
@@ -530,26 +560,57 @@ export async function validarYCanjearCupon(
 
       return {
         success: false,
-        message: "Este cupón se encuentra vencido.",
+        error: "Este cupón se encuentra vencido.",
         data: formatCupon(cupon),
       }
     }
 
-    // 🔒 5. Comprobar si ya fue utilizado
+    // 🔒 Comprobar si ya fue utilizado
     if (cupon.estado === EstadoCupon.USADO) {
       return {
         success: false,
-        message: "Este cupón ya fue canjeado anteriormente.",
+        error: "Este cupón ya fue canjeado anteriormente.",
         data: formatCupon(cupon),
       }
     }
 
-    // Actualizar estado a USADO
+    // --- CÁLCULOS FINANCIEROS Y SNAPSHOT ---
+    const valorDesc = Number(cupon.valorDescuento)
+    let montoDescuento = 0
+
+    if (cupon.tipoDescuento === TipoDescuento.PORCENTAJE) {
+      montoDescuento = (montoOriginal * valorDesc) / 100
+    } else {
+      montoDescuento = Math.min(montoOriginal, valorDesc)
+    }
+
+    const montoFinalCliente = Math.max(0, montoOriginal - montoDescuento)
+
+    // Obtener negocio del vendedor asociado
+    const negocio = cupon.usuario?.negocio
+    const montoComisionVendedor = negocio?.montoComisionDefault
+      ? Number(negocio.montoComisionDefault)
+      : 3000.00
+
+    const porcentajeFeeAplicado = negocio?.porcentajeFee
+      ? Number(negocio.porcentajeFee)
+      : 0.00
+
+    // Cálculo de la retención del dueño basada en el fee actual
+    const comisionDuenoCalculada = (montoComisionVendedor * porcentajeFeeAplicado) / 100
+
+    // Actualizar estado a USADO guardando los valores calculados y el snapshot
     const cuponCanjeado = await prisma.cupon.update({
       where: { id: cupon.id },
       data: {
         estado: EstadoCupon.USADO,
         fechaUso: ahora,
+        montoOriginal,
+        montoDescuento,
+        montoFinalCliente,
+        montoComisionVendedor,
+        porcentajeFeeAplicado,
+        comisionDuenoCalculada,
       },
       include: {
         cliente: true,
@@ -570,7 +631,7 @@ export async function validarYCanjearCupon(
     console.error("Error al validar/canjear el cupón:", error)
     return {
       success: false,
-      message: "Ocurrió un error en el servidor al intentar validar el cupón.",
+      error: "Ocurrió un error en el servidor al intentar validar el cupón.",
     }
   }
 }

@@ -1,18 +1,18 @@
-import { getCuponByCodigo, validarYCanjearCupon } from "@/app/actions/cupones";
-import { revalidatePath } from "next/cache";
-import Link from "next/link";
+import { getCuponByCodigo, validarYCanjearCupon } from "@/app/actions/cupones"
+import Link from "next/link"
+import CanjeFormClient from "./CanjeFormClient"
 
 interface PageProps {
   params: Promise<{
-    codigo: string;
-  }>;
+    codigo: string
+  }>
 }
 
 export default async function ValidarCuponDirectoPage({ params }: PageProps) {
-  const { codigo } = await params;
+  const { codigo } = await params
 
   // 1. Obtener los detalles del cupón desde el Server Action
-  const response = await getCuponByCodigo(codigo);
+  const response = await getCuponByCodigo(codigo)
 
   // 2. Manejo de cupón inexistente
   if (!response.success || !response.data) {
@@ -37,10 +37,10 @@ export default async function ValidarCuponDirectoPage({ params }: PageProps) {
           </Link>
         </div>
       </div>
-    );
+    )
   }
 
-  const cupon = response.data;
+  const cupon = response.data
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-between p-4 py-6">
@@ -118,22 +118,9 @@ export default async function ValidarCuponDirectoPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Acción de Canje mediante Server Action */}
+        {/* Sección de Canje mediante Client Component */}
         {cupon.estado === "PENDIENTE" ? (
-          <form
-            action={async () => {
-              "use server";
-              await validarYCanjearCupon(cupon.codigo);
-              revalidatePath(`/validar/${cupon.codigo}`);
-            }}
-          >
-            <button
-              type="submit"
-              className="w-full rounded-2xl bg-emerald-600 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-emerald-700 active:scale-98 cursor-pointer"
-            >
-              ✓ Confirmar y Canjear Cupón
-            </button>
-          </form>
+          <CanjeFormClient codigo={cupon.codigo} action={validarYCanjearCupon} />
         ) : (
           <div className="rounded-2xl bg-gray-100 p-4 text-center text-sm font-semibold text-gray-600 dark:bg-white/5 dark:text-gray-300">
             {cupon.estado === "USADO"
@@ -151,5 +138,5 @@ export default async function ValidarCuponDirectoPage({ params }: PageProps) {
         Sistema de Cupones y Referidos
       </div>
     </div>
-  );
+  )
 }

@@ -307,7 +307,7 @@ export default async function CuponDetallePage({ params }: PageProps) {
 
             <div>
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Retención Taller ({porcentajeFee}%)
+                Retención negocio ({porcentajeFee}%)
               </span>
               <span className="font-semibold text-red-600 dark:text-red-400">
                 -$

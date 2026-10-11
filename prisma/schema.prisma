@@ -176,6 +176,10 @@ model Cupon {
   createdAt DateTime  @default(now())
   fechaUso  DateTime? // fecha de canje efectivo en el taller
 
+// 👈 NUEVOS CAMPOS DE SNAPSHOT PARA EVITAR PROBLEMAS A FUTURO
+  porcentajeFeeAplicado  Decimal? @db.Decimal(5, 2)  // Ej: el fee que tenía el negocio en este momento exacto
+  comisionDuenoCalculada Decimal? @db.Decimal(10, 2) // La retención exacta calculada para este cupón
+
   @@index([usuarioId])
   @@index([clienteId])
   @@index([liquidacionDetalleId])

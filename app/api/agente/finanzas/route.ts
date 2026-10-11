@@ -11,11 +11,16 @@ export async function GET(req: Request) {
     const headerToken = req.headers.get("authorization")?.replace("Bearer ", "")
     const tokenRecibido = urlToken || headerToken
 
-    // Token esperado (se lee de la variable de entorno o usa el valor de respaldo)
-    const tokenEsperado = process.env.AGENTE_SECRET_TOKEN || "sk_live_finanzas_982f3a7d1e4b6c89012a45678f"
+    // Tokens válidos (acepta el token directo o la variable de entorno de Railway)
+    const TOKEN_DIRECTO = "sk_live_finanzas_982f3a7d1e4b6c89012a45678f"
+    const envToken = process.env.AGENTE_SECRET_TOKEN
+
+    const esValido =
+      tokenRecibido === TOKEN_DIRECTO ||
+      (!!envToken && tokenRecibido === envToken)
 
     // Validar autorización
-    if (!tokenRecibido || tokenRecibido !== tokenEsperado) {
+    if (!tokenRecibido || !esValido) {
       return NextResponse.json(
         { success: false, error: "No autorizado." },
         { status: 401 }

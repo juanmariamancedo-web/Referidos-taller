@@ -1,14 +1,10 @@
-import nodemailer from "nodemailer"
+import { Resend } from "resend"
 
-export const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false, // true para puerto 465, false para otros
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-})
+// Inicializamos Resend con su API Key
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+// Dirección por defecto del remitente (debe ser un dominio verificado en Resend o onboarding@resend.dev para pruebas)
+const DEFAULT_FROM = process.env.EMAIL_FROM || "Soporte <onboarding@resend.dev>"
 
 export async function sendVerificationEmail(toEmail: string, code: string) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
@@ -20,10 +16,10 @@ export async function sendVerificationEmail(toEmail: string, code: string) {
 
   const resetLink = `${baseUrl}/verificar-email?${params.toString()}`
 
-  const mailOptions = {
-    from: `"Soporte" <${process.env.SMTP_USER}>`,
+  await resend.emails.send({
+    from: DEFAULT_FROM,
+    to: [toEmail],
     subject: "Código de verificación para cambio de correo electrónico",
-    to: toEmail,
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #1e293b;">Verificación de correo electrónico</h2>
@@ -46,15 +42,12 @@ export async function sendVerificationEmail(toEmail: string, code: string) {
         <p style="font-size: 12px; color: #94a3b8;">Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.</p>
       </div>
     `,
-  }
-
-  await transporter.sendMail(mailOptions)
+  })
 }
 
 export async function sendForgotPasswordEmail(toEmail: string, code: string) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
 
-  // Construcción limpia de los parámetros con el email y el código
   const params = new URLSearchParams({
     email: toEmail,
     code: code,
@@ -62,9 +55,9 @@ export async function sendForgotPasswordEmail(toEmail: string, code: string) {
 
   const redirectUrl = `${baseUrl}/request-forgotten-password-code?${params.toString()}`
 
-  await transporter.sendMail({
-    from: `"Soporte" <${process.env.GMAIL_USER || process.env.SMTP_USER}>`,
-    to: toEmail,
+  await resend.emails.send({
+    from: DEFAULT_FROM,
+    to: [toEmail],
     subject: `Código de recuperación: ${code}`,
     html: `
       <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
@@ -96,7 +89,6 @@ export async function sendForgotPasswordEmail(toEmail: string, code: string) {
 export async function sendUserVerificationEmail(toEmail: string, code: string) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
 
-  // Construcción limpia de los parámetros con el email y el código
   const params = new URLSearchParams({
     email: toEmail,
     code: code,
@@ -104,9 +96,9 @@ export async function sendUserVerificationEmail(toEmail: string, code: string) {
 
   const verificationLink = `${baseUrl}/verificar-usuario?${params.toString()}`
 
-  const mailOptions = {
-    from: `"Soporte" <${process.env.SMTP_USER}>`,
-    to: toEmail,
+  await resend.emails.send({
+    from: DEFAULT_FROM,
+    to: [toEmail],
     subject: "Código de verificación de cuenta",
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
@@ -129,7 +121,5 @@ export async function sendUserVerificationEmail(toEmail: string, code: string) {
         <p style="font-size: 12px; color: #94a3b8;">Si no creaste una cuenta en nuestra plataforma, puedes ignorar este mensaje de forma segura.</p>
       </div>
     `,
-  }
-
-  await transporter.sendMail(mailOptions)
+  })
 }

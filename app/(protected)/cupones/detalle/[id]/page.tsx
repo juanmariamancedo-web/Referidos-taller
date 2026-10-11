@@ -21,8 +21,8 @@ export default async function CuponDetallePage({ params }: PageProps) {
   const vendedor = cupon.usuario
   const negocio = vendedor?.negocio
 
-  // Helper de formato para el monto/descuento del cupón
-  const formatoMonto =
+  // Helper de formato para el monto/descuento del cupón original
+  const formatoMontoDescuento =
     cupon.tipoDescuento === "PORCENTAJE"
       ? `${cupon.valorDescuento}%`
       : `$${cupon.valorDescuento.toLocaleString("es-AR", {
@@ -44,11 +44,25 @@ export default async function CuponDetallePage({ params }: PageProps) {
     }
   }
 
-  // Cálculos dinámicos cuando el cupón está USADO pero aún no LIQUIDADO
-  const porcentajeFee = Number(negocio?.porcentajeFee || 0)
-  const montoBaseProyectado = Number(cupon.valorDescuento || 0)
-  const retencionProyectada = (montoBaseProyectado * porcentajeFee) / 100
-  const netoProyectado = montoBaseProyectado - retencionProyectada
+  // Valores financieros extraídos del cupón (o usando el snapshot si ya fue usado)
+  const montoOriginal = cupon.montoOriginal ? Number(cupon.montoOriginal) : 0
+  const montoDescuento = cupon.montoDescuento ? Number(cupon.montoDescuento) : 0
+  const montoFinalCliente = cupon.montoFinalCliente ? Number(cupon.montoFinalCliente) : 0
+  
+  // Comisión y fee (si ya fue usado usa el snapshot, sino usa el valor actual de la regla como estimación)
+  const comisionVendedor = cupon.montoComisionVendedor !== null && cupon.montoComisionVendedor !== undefined
+    ? Number(cupon.montoComisionVendedor)
+    : Number(negocio?.montoComisionDefault || 3000)
+
+  const porcentajeFee = cupon.porcentajeFeeAplicado !== null && cupon.porcentajeFeeAplicado !== undefined
+    ? Number(cupon.porcentajeFeeAplicado)
+    : Number(negocio?.porcentajeFee || 0)
+
+  const retencionDueno = cupon.comisionDuenoCalculada !== null && cupon.comisionDuenoCalculada !== undefined
+    ? Number(cupon.comisionDuenoCalculada)
+    : (comisionVendedor * porcentajeFee) / 100
+
+  const netoVendedor = comisionVendedor - retencionDueno
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
@@ -88,7 +102,7 @@ export default async function CuponDetallePage({ params }: PageProps) {
 
       {/* Grid de Secciones */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Card 1: Detalles del Descuento */}
+        {/* Card 1: Términos del Descuento */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
           <h2 className="mb-4 border-b pb-2 text-lg font-semibold text-gray-900 dark:border-white/10 dark:text-white">
             Términos del Descuento
@@ -103,9 +117,9 @@ export default async function CuponDetallePage({ params }: PageProps) {
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-gray-500 dark:text-gray-400">Valor:</dt>
+              <dt className="text-gray-500 dark:text-gray-400">Valor Regla:</dt>
               <dd className="text-base font-bold text-blue-600 dark:text-blue-400">
-                {formatoMonto}
+                {formatoMontoDescuento}
               </dd>
             </div>
             <div className="flex justify-between">
@@ -213,7 +227,7 @@ export default async function CuponDetallePage({ params }: PageProps) {
             {negocio && (
               <div className="flex justify-between">
                 <dt className="text-gray-500 dark:text-gray-400">
-                  % Fee Retenido:
+                  % Fee Aplicado:
                 </dt>
                 <dd className="font-medium text-gray-900 dark:text-white">
                   {porcentajeFee}%
@@ -267,13 +281,69 @@ export default async function CuponDetallePage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* Si el cupón fue usado o liquidado, mostramos el desglose financiero del canje */}
+      {cupon.estado !== "PENDIENTE" && cupon.estado !== "VENCIDO" && montoOriginal > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <h2 className="mb-4 border-b pb-2 text-lg font-semibold text-gray-900 dark:border-white/10 dark:text-white">
+            Desglose Financiero del Servicio y Comisión
+          </h2>
+
+          <div className="grid gap-4 text-sm sm:grid-cols-2 md:grid-cols-5">
+            <div>
+              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Monto Original (Taller)
+              </span>
+              <span className="font-semibold text-gray-900 dark:text-white">
+                ${montoOriginal.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div>
+              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Descuento Cliente
+              </span>
+              <span className="font-semibold text-amber-600 dark:text-amber-400">
+                -${montoDescuento.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div>
+              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Total Final Cliente
+              </span>
+              <span className="font-semibold text-gray-900 dark:text-white">
+                ${montoFinalCliente.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div>
+              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Retención Taller ({porcentajeFee}%)
+              </span>
+              <span className="font-semibold text-red-600 dark:text-red-400">
+                -${retencionDueno.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div>
+              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Neto Vendedor
+              </span>
+              <span className="text-base font-bold text-green-600 dark:text-green-400">
+                ${netoVendedor.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Card 5: CASO A - Cupón ya LIQUIDADO */}
       {cupon.estado === "LIQUIDADO" && cupon.liquidacionDetalle && (
-        <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-5 dark:border-blue-900/40 dark:bg-slate-900">
-          <h2 className="mb-4 border-b border-blue-200 pb-2 text-lg font-semibold text-blue-900 dark:border-blue-900/50 dark:text-blue-300">
-            Desglose de Pago / Liquidación Efectuada
+        <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-5 dark:border-purple-900/40 dark:bg-slate-900">
+          <h2 className="mb-4 border-b border-purple-200 pb-2 text-lg font-semibold text-purple-900 dark:border-purple-900/50 dark:text-purple-300">
+            Detalle de Liquidación Efectuada
           </h2>
-          <div className="grid gap-4 text-sm sm:grid-cols-2 md:grid-cols-5">
+          <div className="grid gap-4 text-sm sm:grid-cols-3 md:grid-cols-3">
             <div>
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
                 Período
@@ -285,49 +355,19 @@ export default async function CuponDetallePage({ params }: PageProps) {
 
             <div>
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Estado
-              </span>
-              <span className="font-semibold text-purple-600 dark:text-purple-400">
-                LIQUIDADO
-              </span>
-            </div>
-
-            <div>
-              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Monto Base Cupón
+                Comisión Bruta Vendedor
               </span>
               <span className="font-semibold text-gray-900 dark:text-white">
-                $
-                {Number(cupon.liquidacionDetalle.montoBruto).toLocaleString(
-                  "es-AR",
-                  { minimumFractionDigits: 2 }
-                )}
+                ${Number(cupon.liquidacionDetalle.montoBruto).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
             <div>
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Retención negocio ({porcentajeFee}%)
-              </span>
-              <span className="font-semibold text-red-600 dark:text-red-400">
-                -$
-                {Number(cupon.liquidacionDetalle.comisionDueno).toLocaleString(
-                  "es-AR",
-                  { minimumFractionDigits: 2 }
-                )}
-              </span>
-            </div>
-
-            <div>
-              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Tu Ganancia Neta
+                Monto Neto Pagado
               </span>
               <span className="text-base font-bold text-green-600 dark:text-green-400">
-                $
-                {Number(cupon.liquidacionDetalle.montoNeto).toLocaleString(
-                  "es-AR",
-                  { minimumFractionDigits: 2 }
-                )}
+                ${Number(cupon.liquidacionDetalle.montoNeto).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -346,25 +386,13 @@ export default async function CuponDetallePage({ params }: PageProps) {
             </span>
           </div>
 
-          <div className="grid gap-4 text-sm sm:grid-cols-2 md:grid-cols-4">
+          <div className="grid gap-4 text-sm sm:grid-cols-3 md:grid-cols-3">
             <div>
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Estado Actual
-              </span>
-              <span className="font-semibold text-green-600 dark:text-green-400">
-                USADO (Pendiente de Pago)
-              </span>
-            </div>
-
-            <div>
-              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Monto Base Cupón
+                Comisión Generada
               </span>
               <span className="font-semibold text-gray-900 dark:text-white">
-                $
-                {montoBaseProyectado.toLocaleString("es-AR", {
-                  minimumFractionDigits: 2,
-                })}
+                ${comisionVendedor.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
@@ -373,22 +401,16 @@ export default async function CuponDetallePage({ params }: PageProps) {
                 Retención Taller Est. ({porcentajeFee}%)
               </span>
               <span className="font-semibold text-red-600 dark:text-red-400">
-                -$
-                {retencionProyectada.toLocaleString("es-AR", {
-                  minimumFractionDigits: 2,
-                })}
+                -${retencionDueno.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
               </span>
             </div>
 
             <div>
               <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
-                A Cobrar Estimado
+                A Cobrar Estimado (Neto)
               </span>
               <span className="text-base font-bold text-green-600 dark:text-green-400">
-                $
-                {netoProyectado.toLocaleString("es-AR", {
-                  minimumFractionDigits: 2,
-                })}
+                ${netoVendedor.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>

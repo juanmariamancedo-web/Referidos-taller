@@ -1,8 +1,19 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
-import { EstadoCupon } from "@prisma/client"
+import { EstadoCupon, EstadoLiquidacion, MetodoPago, Prisma } from "@prisma/client"
 
+export interface RegistrarPagoNegocioParams {
+  negocioId: string
+  periodo: string // Ej: "2026-10-Q1"
+  metodoPago?: MetodoPago // EFECTIVO, TRANSFERENCIA, CHEQUE
+  numeroTransferencia?: string
+}
+
+/**
+ * Consulta cuánto se debe al local y a los vendedores basándose en los cupones
+ * en estado USADO que aún no tienen una liquidación asociada.
+ */
 export async function consultarDeudaPorNegocios() {
   try {
     const cuponesPendientes = await prisma.cupon.findMany({
@@ -41,10 +52,9 @@ export async function consultarDeudaPorNegocios() {
           cbuCvu: negocio.cbuCvu || "No registrado",
           banco: negocio.bancoOProveedor || "-",
           totalCupones: 0,
-          // Totales desglosados
-          deudaConElLocal: 0,        // Suma de comisionDuenoCalculada
+          montoTotalBruto: 0,
+          deudaConElLocal: 0,        // Suma de comisionDuenoCalculada (lo que va al local)
           deudaConVendedores: 0,     // Suma de (montoComisionVendedor - comisionDuenoCalculada)
-          montoTotalBruto: 0,        // Suma de montoComisionVendedor
           desgloseVendedores: {},    // Detalle por cada vendedor individual
         }
       }
@@ -164,7 +174,7 @@ export async function registrarLiquidacionYPagonegocio({
         },
       })
 
-      // 2. Crear el PagoNegocio consolidado
+      // 2. Crear el PagoNegocio consolidado (correspondiente a lo que se debe al local)
       const pagoNegocio = await tx.pagoNegocio.create({
         data: {
           negocioId,

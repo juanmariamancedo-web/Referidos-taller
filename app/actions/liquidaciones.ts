@@ -1,19 +1,8 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
-import { EstadoCupon, EstadoLiquidacion, MetodoPago, Prisma } from "@prisma/client"
+import { EstadoCupon } from "@prisma/client"
 
-export interface RegistrarPagoNegocioParams {
-  negocioId: string
-  periodo: string // Ej: "2026-10-Q1"
-  metodoPago?: MetodoPago // EFECTIVO, TRANSFERENCIA, CHEQUE
-  numeroTransferencia?: string
-}
-
-/**
- * Consulta cuánto se debe a cada negocio basándose en los cupones que ya fueron canjeados (USADO)
- * pero que todavía no tienen una liquidación asignada (liquidacionDetalleId es null).
- */
 export async function consultarDeudaPorNegocios() {
   try {
     const cuponesPendientes = await prisma.cupon.findMany({
@@ -31,7 +20,11 @@ export async function consultarDeudaPorNegocios() {
     })
 
     if (cuponesPendientes.length === 0) {
-      return { success: true, mensaje: "No hay cupones pendientes de liquidación en ningún negocio.", data: [] }
+      return {
+        success: true,
+        mensaje: "No hay cupones pendientes de liquidación en ningún negocio.",
+        data: [],
+      }
     }
 
     const resumenNegocios: Record<string, any> = {}
@@ -48,27 +41,47 @@ export async function consultarDeudaPorNegocios() {
           cbuCvu: negocio.cbuCvu || "No registrado",
           banco: negocio.bancoOProveedor || "-",
           totalCupones: 0,
-          comisionBrutaVendedores: 0,
-          retencionDuenoTotal: 0, // Lo que le corresponde al negocio (pagoNegocio)
-          netoVendedoresTotal: 0, // Lo que hay que pagarle a los vendedores en total
-          vendedoresAfectados: new Set(),
+          // Totales desglosados
+          deudaConElLocal: 0,        // Suma de comisionDuenoCalculada
+          deudaConVendedores: 0,     // Suma de (montoComisionVendedor - comisionDuenoCalculada)
+          montoTotalBruto: 0,        // Suma de montoComisionVendedor
+          desgloseVendedores: {},    // Detalle por cada vendedor individual
         }
       }
 
       const comisionVendedor = Number(cupon.montoComisionVendedor || 0)
-      const retencionDueno = Number(cupon.comisionDuenoCalculada || 0)
-      const netoVendedor = comisionVendedor - retencionDueno
+      const comisionDueno = Number(cupon.comisionDuenoCalculada || 0)
+      const netoVendedor = comisionVendedor - comisionDueno
 
+      const vendedorId = cupon.usuarioId
+      const nombreVendedor = cupon.usuario
+        ? `${cupon.usuario.nombre || ""} ${cupon.usuario.apellido || ""}`.trim() || cupon.usuario.email
+        : "Desconocido"
+
+      // Acumuladores del negocio
       resumenNegocios[negocio.id].totalCupones += 1
-      resumenNegocios[negocio.id].comisionBrutaVendedores += comisionVendedor
-      resumenNegocios[negocio.id].retencionDuenoTotal += retencionDueno
-      resumenNegocios[negocio.id].netoVendedoresTotal += netoVendedor
-      resumenNegocios[negocio.id].vendedoresAfectados.add(cupon.usuarioId)
+      resumenNegocios[negocio.id].montoTotalBruto += comisionVendedor
+      resumenNegocios[negocio.id].deudaConElLocal += comisionDueno
+      resumenNegocios[negocio.id].deudaConVendedores += netoVendedor
+
+      // Acumulador por vendedor individual
+      if (!resumenNegocios[negocio.id].desgloseVendedores[vendedorId]) {
+        resumenNegocios[negocio.id].desgloseVendedores[vendedorId] = {
+          vendedorId,
+          nombre: nombreVendedor,
+          cupones: 0,
+          netoACobrar: 0,
+        }
+      }
+
+      resumenNegocios[negocio.id].desgloseVendedores[vendedorId].cupones += 1
+      resumenNegocios[negocio.id].desgloseVendedores[vendedorId].netoACobrar += netoVendedor
     }
 
+    // Formatear desgloseVendedores de objeto a array para facilitar consumo
     const resultado = Object.values(resumenNegocios).map((item) => ({
       ...item,
-      vendedoresAfectados: item.vendedoresAfectados.size,
+      desgloseVendedores: Object.values(item.desgloseVendedores),
     }))
 
     return { success: true, data: resultado }

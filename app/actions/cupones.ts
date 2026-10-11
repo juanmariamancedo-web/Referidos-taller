@@ -464,7 +464,7 @@ export async function getCuponByCodigo(codigo: string) {
 }
 
 /**
- * Valida y canjea un cupón: calcula descuentos, comisiones y congela el snapshot financiero.
+ * Valida y canjea un cupón: calcula descuentos, comisiones porcentuales y congela el snapshot financiero.
  * REQUIERE OBLIGATORIAMENTE ROL DE ADMINISTRADOR (ADMIN).
  */
 export async function validarYCanjearCupon(
@@ -588,15 +588,20 @@ export async function validarYCanjearCupon(
 
     // Obtener negocio del vendedor asociado
     const negocio = cupon.usuario?.negocio
-    const montoComisionVendedor = negocio?.montoComisionDefault
+
+    // Factor o porcentaje de comisión configurado en el negocio (ej: 10.0 para 10% del monto original)
+    const factorComision = negocio?.montoComisionDefault
       ? Number(negocio.montoComisionDefault)
-      : 3000.00
+      : 10.00
+
+    // Cálculo de la comisión del vendedor en base porcentual al monto original
+    const montoComisionVendedor = (montoOriginal * factorComision) / 100
 
     const porcentajeFeeAplicado = negocio?.porcentajeFee
       ? Number(negocio.porcentajeFee)
       : 0.00
 
-    // Cálculo de la retención del dueño basada en el fee actual
+    // Cálculo de la retención del dueño basada en el fee aplicado sobre la comisión del vendedor
     const comisionDuenoCalculada = (montoComisionVendedor * porcentajeFeeAplicado) / 100
 
     // Actualizar estado a USADO guardando los valores calculados y el snapshot

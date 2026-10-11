@@ -44,10 +44,12 @@ export async function solicitarCuponAction(formData: FormData): Promise<Solicita
       return { success: false, error: 'El negocio asociado no se encuentra activo.' };
     }
 
-    // 3. Determinación y sanitización del valor del descuento/fee
-    const descuentoAplicable = vendedor.negocio.porcentajeFee 
-      ? Number(vendedor.negocio.valorDescuentoDefault)
+    // 3. Obtener el valor de descuento por defecto configurado en el negocio (por defecto 10.0)
+    const valorDescuentoDefault = vendedor.negocio.valorDescuentoDefault 
+      ? Number(vendedor.negocio.valorDescuentoDefault) 
       : 10.0;
+
+    const tipoDescuentoDefault = vendedor.negocio.tipoDescuentoDefault || TipoDescuento.PORCENTAJE;
 
     // 4. Crear o buscar al cliente (Upsert)
     const cliente = await prisma.cliente.upsert({
@@ -111,13 +113,13 @@ export async function solicitarCuponAction(formData: FormData): Promise<Solicita
       return { success: false, error: 'No se pudo generar un código único. Inténtalo nuevamente.' };
     }
 
-    // 8. Crear el nuevo cupón con el fee/descuento verificado
+    // 8. Crear el nuevo cupón aplicando la configuración estándar del negocio
     const nuevoCupon = await prisma.cupon.create({
       data: {
         codigo: codigoUnico,
         estado: EstadoCupon.PENDIENTE,
-        tipoDescuento: TipoDescuento.PORCENTAJE,
-        valorDescuento: descuentoAplicable,
+        tipoDescuento: tipoDescuentoDefault,
+        valorDescuento: valorDescuentoDefault,
         terminosCondiciones: 'Válido para un solo uso. Presentar en el establecimiento.',
         fechaExpiracion,
         usuarioId: vendedor.id,

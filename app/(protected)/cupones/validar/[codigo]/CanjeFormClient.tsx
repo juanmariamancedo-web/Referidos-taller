@@ -2,6 +2,7 @@
 
 import { useActionState } from "react"
 import { CanjearCuponState } from "@/app/actions/cupones"
+import Link from "next/link"
 
 interface CanjeFormClientProps {
   codigo: string
@@ -13,6 +14,59 @@ const initialState: CanjearCuponState = {}
 export default function CanjeFormClient({ codigo, action }: CanjeFormClientProps) {
   const actionWithId = action.bind(null, codigo)
   const [state, formAction, isPending] = useActionState(actionWithId, initialState)
+
+  // Si el canje fue exitoso, mostramos una tarjeta de confirmación con los datos
+  if (state?.success) {
+    const cupon = state.data
+    return (
+      <div className="space-y-6 rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center backdrop-blur-md">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-white text-2xl shadow-lg">
+          ✓
+        </div>
+        <div>
+          <h2 className="text-xl font-black text-emerald-700 dark:text-emerald-400">
+            ¡Canje Exitoso!
+          </h2>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+            {state.message || "El cupón ha sido procesado correctamente."}
+          </p>
+        </div>
+
+        {/* Resumen Financiero del Canje */}
+        {cupon && (
+          <div className="space-y-2 rounded-2xl bg-white/60 p-4 text-left text-sm dark:bg-neutral-900/60 border border-black/5 dark:border-white/5">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Monto Original:</span>
+              <span className="font-semibold text-gray-900 dark:text-white">
+                ${Number(cupon.montoOriginal).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Descuento Aplicado:</span>
+              <span className="font-semibold text-amber-600 dark:text-amber-400">
+                -${Number(cupon.montoDescuento).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex justify-between border-t pt-2 dark:border-white/10">
+              <span className="font-bold text-gray-700 dark:text-gray-300">Total a Cobrar al Cliente:</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                ${Number(cupon.montoFinalCliente).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2">
+          <Link
+            href="/cupones"
+            className="inline-block w-full rounded-2xl bg-neutral-900 py-3.5 text-center text-sm font-bold text-white shadow transition hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+          >
+            Volver al listado de cupones
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <form action={formAction} className="space-y-4">

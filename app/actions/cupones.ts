@@ -614,7 +614,6 @@ export async function validarYCanjearCupon(
         montoDescuento,
         montoFinalCliente,
         montoComisionVendedor,
-        porcentajeFeeAplicado,
         comisionDuenoCalculada,
       },
       include: {

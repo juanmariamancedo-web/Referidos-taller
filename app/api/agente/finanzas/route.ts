@@ -8,9 +8,12 @@ export async function GET(req: Request) {
     const token = searchParams.get("token")
     const secretToken = process.env.AGENTE_SECRET_TOKEN
 
-    // Validamos que la clave secreta sea correcta
+    // Validación del token secreto
     if (!token || token !== secretToken) {
-      return NextResponse.json({ success: false, error: "No autorizado." }, { status: 401 })
+      return NextResponse.json(
+        { success: false, error: "No autorizado." },
+        { status: 401 }
+      )
     }
 
     if (accion === "consultar_deudas") {
@@ -18,8 +21,15 @@ export async function GET(req: Request) {
       return NextResponse.json(resultado)
     }
 
-    return NextResponse.json({ success: false, error: "Acción no válida." }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: "Acción no válida." },
+      { status: 400 }
+    )
   } catch (error) {
-    return NextResponse.json({ success: false, error: "Error en el servidor." }, { status: 500 })
+    console.error("Error en API GET finanzas:", error)
+    return NextResponse.json(
+      { success: false, error: "Error interno del servidor." },
+      { status: 500 }
+    )
   }
 }

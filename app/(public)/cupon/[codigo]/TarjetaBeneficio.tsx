@@ -37,7 +37,7 @@ export default function TarjetaBeneficio({ cupon }: CuponProps) {
 
   useEffect(() => {
     if (!cupon.codigo) return;
-    const baseUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/canje/${cupon.codigo}`;
+    const baseUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/cupones/validar/${cupon.codigo}`;
     QRCode.toDataURL(baseUrl, {
       width: 500,
       margin: 0,

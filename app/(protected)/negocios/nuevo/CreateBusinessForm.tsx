@@ -130,7 +130,7 @@ export default function CreateBusinessForm() {
             type="number"
             step="0.01"
             min="0"
-            name="montoComisionDefault"
+            name="porcentajeComisionDefault"
             required
             defaultValue="3000.00"
             placeholder="Ej: 3000.00"

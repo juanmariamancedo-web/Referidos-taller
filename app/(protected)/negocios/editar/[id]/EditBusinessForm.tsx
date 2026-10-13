@@ -4,7 +4,7 @@ import { useActionState } from "react"
 import Link from "next/link"
 import { updateBusiness, UpdateBusinessState } from "@/app/actions/business"
 
-// Tipado actualizado con valorDescuentoDefault y montoComisionDefault
+// Tipado actualizado con valorDescuentoDefault y porcentajeComisionDefault
 interface Business {
   id: string
   userEmail: string
@@ -12,7 +12,7 @@ interface Business {
   direccion?: string | null
   porcentajeFee?: number | null
   valorDescuentoDefault?: number | null
-  montoComisionDefault?: number | null
+  porcentajeComisionDefault?: number | null
   bancoOProveedor?: string | null
   alias?: string | null
   cbuCvu?: string | null
@@ -160,9 +160,9 @@ export default function EditBusinessForm({ business }: EditBusinessFormProps) {
             type="number"
             step="0.01"
             min="0"
-            name="montoComisionDefault"
+            name="porcentajeComisionDefault"
             required
-            defaultValue={business.montoComisionDefault ?? 3000.00}
+            defaultValue={business.porcentajeComisionDefault ?? 3000.00}
             placeholder="Ej: 3000.00"
             className={inputStyles}
           />

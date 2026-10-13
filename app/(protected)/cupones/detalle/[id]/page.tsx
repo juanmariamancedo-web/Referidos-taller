@@ -52,7 +52,7 @@ export default async function CuponDetallePage({ params }: PageProps) {
   // Comisión y fee (si ya fue usado usa el snapshot, sino usa el valor actual de la regla como estimación)
   const comisionVendedor = cupon.montoComisionVendedor !== null && cupon.montoComisionVendedor !== undefined
     ? Number(cupon.montoComisionVendedor)
-    : Number(negocio?.montoComisionDefault || 3000)
+    : Number(negocio?.porcentajeComisionDefault || 3000)
 
   const porcentajeFee = cupon.porcentajeFeeAplicado !== null && cupon.porcentajeFeeAplicado !== undefined
     ? Number(cupon.porcentajeFeeAplicado)

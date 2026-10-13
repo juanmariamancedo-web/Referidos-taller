@@ -31,7 +31,7 @@ export default async function EditBusinessPage({ params }: EditBusinessPageProps
   const serializedBusiness = {
     ...business,
     valorDescuentoDefault: business.valorDescuentoDefault ? Number(business.valorDescuentoDefault) : null,
-    montoComisionDefault: business.montoComisionDefault ? Number(business.montoComisionDefault) : null,
+    porcentajeComisionDefault: business.porcentajeComisionDefault ? Number(business.porcentajeComisionDefault) : null,
     porcentajeFee: business.porcentajeFee ? Number(business.porcentajeFee) : null,
   }
 

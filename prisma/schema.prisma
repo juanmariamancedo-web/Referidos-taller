@@ -58,7 +58,10 @@ model Negocio {
   valorDescuentoDefault Decimal       @default(10.00) @db.Decimal(10, 2)
 
   /// Comisión/Recompensa base generada para el vendedor por cada cupón exitoso
-  montoComisionDefault  Decimal       @default(3000.00) @db.Decimal(10, 2)
+  // montoComisionDefault  Decimal       @default(3000.00) @db.Decimal(10, 2)
+
+  /// Porcentaje de comisión por defecto generado para el vendedor por cada cupón exitoso (ej. 10.00 para 10%)
+  porcentajeComisionDefault Decimal @default(10.00) @db.Decimal(5, 2)
 
   /// Porcentaje de retención/fee que el dueño del negocio se queda sobre las comisiones de sus vendedores (ej. 20.00)
   porcentajeFee         Decimal       @default(0.00) @db.Decimal(5, 2)

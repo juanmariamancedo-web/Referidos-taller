@@ -47,7 +47,7 @@ const cuponDetallePayload = Prisma.validator<Prisma.CuponDefaultArgs>()({
             nombre: true,
             porcentajeFee: true,
             valorDescuentoDefault: true,
-            montoComisionDefault: true,
+            porcentajeComisionDefault: true,
           },
         },
       },
@@ -118,7 +118,7 @@ function formatCupon<T extends Record<string, any>>(cupon: T) {
       negocio: cupon.usuario.negocio ? {
         ...cupon.usuario.negocio,
         valorDescuentoDefault: cupon.usuario.negocio.valorDescuentoDefault ? Number(cupon.usuario.negocio.valorDescuentoDefault) : 0,
-        montoComisionDefault: cupon.usuario.negocio.montoComisionDefault ? Number(cupon.usuario.negocio.montoComisionDefault) : 0,
+        porcentajeComisionDefault: cupon.usuario.negocio.porcentajeComisionDefault ? Number(cupon.usuario.negocio.porcentajeComisionDefault) : 0,
         porcentajeFee: cupon.usuario.negocio.porcentajeFee ? Number(cupon.usuario.negocio.porcentajeFee) : 0,
       } : null
     } : null,
@@ -590,8 +590,8 @@ export async function validarYCanjearCupon(
     const negocio = cupon.usuario?.negocio
 
     // Factor o porcentaje de comisión configurado en el negocio (ej: 10.0 para 10% del monto original)
-    const factorComision = negocio?.montoComisionDefault
-      ? Number(negocio.montoComisionDefault)
+    const factorComision = negocio?.porcentajeComisionDefault
+      ? Number(negocio.porcentajeComisionDefault)
       : 10.00
 
     // Cálculo de la comisión del vendedor en base porcentual al monto original

@@ -3,17 +3,17 @@
 import { useEffect, useState } from "react";
 
 interface EstandarteProps {
-  qrUser: string
+  qrUser: string;
 }
 
-export default function Estandarte({qrUser} : EstandarteProps) {
+export default function Estandarte({ qrUser }: EstandarteProps) {
   const [qrUrl, setQrUrl] = useState("");
-  
 
   useEffect(() => {
-    const baseUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/c/${qrUser}`
-       setQrUrl(`
-        https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(baseUrl)}`)
+    const baseUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/c/${qrUser}`;
+    setQrUrl(
+      `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(baseUrl)}`
+    );
   }, [qrUser]);
 
   return (
@@ -43,10 +43,10 @@ export default function Estandarte({qrUser} : EstandarteProps) {
         }
       `}</style>
 
-      {/* Tarjeta imprimible responsive */}
+      {/* Tarjeta imprimible responsive con línea de guía de corte integrada */}
       <div
         id="print-area"
-        className="relative flex aspect-[13/18] h-auto w-full max-w-[340px] items-center justify-center bg-white bg-contain bg-center bg-no-repeat shadow-2xl sm:h-[18cm] sm:w-[13cm] sm:max-w-none print:shadow-none"
+        className="relative flex aspect-[13/18] h-auto w-full max-w-[340px] items-center justify-center bg-white bg-contain bg-center bg-no-repeat shadow-2xl sm:h-[18cm] sm:w-[13cm] sm:max-w-none print:shadow-none border border-dashed border-gray-400 print:border-gray-300"
         style={{ backgroundImage: "url('/ESTANDARTE-RM.png')" }}
       >
         {/* Posicionamiento porcentual absoluto que escala proporcionalmente */}
@@ -68,7 +68,7 @@ export default function Estandarte({qrUser} : EstandarteProps) {
         onClick={() => window.print()}
         className="rounded-xl bg-red-600 px-6 py-2.5 font-bold text-white shadow-md transition hover:bg-red-700 active:scale-95 print:hidden"
       >
-        🖨️ Imprimir Estandarte
+        🖨️ Imprimir Estandarte con Guía de Corte
       </button>
     </div>
   );
